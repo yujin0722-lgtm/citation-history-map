@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Citation History Map</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="app-name">Citation History Map</div>
+  <div class="app-sub">引用の歴史をたどる、論文読解支援ツール</div>
+  <div class="head-btns">
+    <button id="btn-fav">★ お気に入り</button>
+    <button id="btn-key">APIキー設定</button>
+  </div>
+</header>
+
+<!-- 入力エリア -->
+<section class="input-area">
+  <input type="text" id="paper-in" placeholder="DOI または PMID を入力（例：10.1056/NEJMoa2035389）"
+         aria-label="DOIまたはPMIDを入力">
+  <button id="btn-create" class="primary">ネットワークを作成</button>
+  <span class="hint">入力例：<code>10.1056/NEJMoa2035389</code>／<code>PMID: 33301246</code>／DOIやPubMedのURLも可</span>
+  <div id="input-error" class="input-error" role="alert" hidden></div>
+</section>
+
+<!-- ローディング -->
+<div id="loading" hidden>
+  <div class="spinner" aria-hidden="true"></div>
+  <span id="loading-text">論文を確認しています…</span>
+</div>
+
+<div class="toolbar" id="toolbar" role="toolbar" aria-label="表示設定" hidden>
+  <div class="tool">
+    <label for="layout-sel">レイアウト</label>
+    <select id="layout-sel">
+      <option value="timeline">過去・未来（タイムライン）</option>
+      <option value="radial">放射状</option>
+      <option value="free">自由ネットワーク</option>
+    </select>
+  </div>
+  <div class="tool">
+    <label for="color-sel">色分け</label>
+    <select id="color-sel">
+      <option value="direction">引用方向</option>
+      <option value="era">出版年代</option>
+      <option value="importance">重要度（被引用数）</option>
+      <option value="mono">単色</option>
+    </select>
+  </div>
+  <div class="tool">
+    <label for="limit-sel">表示件数</label>
+    <select id="limit-sel">
+      <option>10</option><option>20</option>
+      <option selected>30</option><option>50</option><option>100</option>
+    </select>
+  </div>
+  <div class="tool">
+    <label for="dir-sel">表示対象</label>
+    <select id="dir-sel">
+      <option value="both">過去＋未来</option>
+      <option value="past">過去のみ</option>
+      <option value="future">未来のみ</option>
+    </select>
+  </div>
+  <label class="chk" for="cluster-chk"><input type="checkbox" id="cluster-chk" checked>同年の下位を畳む</label>
+  <div class="tool">
+    <label for="keep-sel">各年の個別表示</label>
+    <select id="keep-sel">
+      <option>3</option><option>5</option><option selected>8</option>
+      <option>10</option><option>15</option>
+    </select>
+  </div>
+  <div class="tool">
+    <label for="search-in">検索</label>
+    <input type="text" id="search-in" placeholder="タイトルの一部" aria-label="表示中の論文タイトルを検索">
+  </div>
+  <button id="btn-rank">上位リスト</button>
+  <button id="btn-relayout">配置を整える</button>
+  <button id="btn-fit">全体を画面に収める</button>
+</div>
+
+<div class="main">
+  <div id="cy-wrap">
+    <div id="cy" aria-label="引用ネットワーク図"></div>
+    <div id="cy-tip" role="tooltip"></div>
+    <div id="welcome">
+      <p><strong>DOI または PMID を入力すると、その論文の「過去」と「未来」が地図になります。</strong></p>
+      <p>・過去文献：その論文が引用している論文<br>
+         ・未来文献：その論文を引用している論文<br>
+         ・矢印の先＝引用された論文／ノードの大きさ＝被引用数</p>
+      <p class="small">初回のみ、右上の「APIキー設定」から OpenAlex の無料APIキーを登録してください。</p>
+    </div>
+    <div id="legend" aria-live="polite" hidden></div>
+    <div id="ruler"></div>
+  </div>
+
+  <aside id="panel" aria-label="論文詳細">
+    <div class="empty">ノード（論文）を選択すると、ここに詳細が表示されます。</div>
+  </aside>
+
+  <aside id="ranklist" aria-label="上位リスト">
+    <h2>上位リスト（トップ10）</h2>
+    <div class="tool" style="margin-bottom:10px;">
+      <label for="rank-sel">基準</label>
+      <select id="rank-sel">
+        <option value="cites">被引用数の多い順</option>
+        <option value="hub">ハブ性（接続数）の多い順</option>
+        <option value="old">古い順</option>
+        <option value="new">新しい順</option>
+      </select>
+    </div>
+    <div id="rank-items"></div>
+    <p class="note" style="margin-top:12px;">
+      「重要度」は、被引用数、ネットワーク上の接続数、出版年などを使った探索上の目安です。研究の質やエビデンスの確実性を評価するものではありません。
+      ハブ性は「現在表示中のネットワーク内」での接続数であり、展開すると変化します。
+    </p>
+  </aside>
+
+  <aside id="favlist" aria-label="お気に入り一覧">
+    <h2>お気に入り</h2>
+    <div id="fav-items"></div>
+    <p class="note" style="margin-top:12px;">
+      お気に入りはこのブラウザ内（Local Storage）に保存されます。別の端末とは同期されません。ブラウザのデータを削除すると消えます。
+    </p>
+  </aside>
+</div>
+
+<footer>
+  データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
+  「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.7
+</footer>
+
+<!-- 汎用モーダル -->
+<div id="modal-bg" role="dialog" aria-modal="true">
+  <div id="modal">
+    <h2 id="modal-title"></h2>
+    <p id="modal-body"></p>
+    <div class="btns">
+      <button id="modal-cancel">キャンセル</button>
+      <button id="modal-ok" class="primary">続行する</button>
+    </div>
+  </div>
+</div>
+
+<!-- APIキー設定モーダル -->
+<div id="key-bg" role="dialog" aria-modal="true">
+  <div id="modal">
+    <h2>OpenAlex APIキーの設定</h2>
+    <p class="small">
+      1. <a href="https://openalex.org" target="_blank" rel="noopener noreferrer">openalex.org</a> で無料アカウントを作成<br>
+      2. <a href="https://openalex.org/settings/api" target="_blank" rel="noopener noreferrer">openalex.org/settings/api</a> でAPIキーをコピー<br>
+      3. 下の欄に貼り付けて保存<br><br>
+      キーはこのブラウザ内にのみ保存され、OpenAlex以外へは送信されません。
+      無料枠は毎日リセットされ、個人での利用には十分な量があります。
+    </p>
+    <input type="text" id="key-in" placeholder="APIキーを貼り付け" aria-label="OpenAlex APIキー">
+    <div class="btns" style="margin-top:14px;">
+      <button id="key-cancel">閉じる</button>
+      <button id="key-save" class="primary">保存する</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js" onerror="window.CHM_CONFIG_MISSING=true"></script>
+<script src="storage.js"></script>
+<script src="api.js"></script>
+<script src="graph.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
