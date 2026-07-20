@@ -19,7 +19,7 @@ const COLORS = {
   ],
   mono: "#5B7183"
 };
-const SHAPES = { RCT: "diamond", META: "hexagon", REVIEW: "round-rectangle", OBS: "ellipse", OTHER: "ellipse" };
+const SHAPES = { RCT: "diamond", META: "hexagon", REVIEW: "round-rectangle", OBS: "round-triangle", OTHER: "ellipse" };
 const STUDY_LABEL = { RCT: "RCT（暫定判定）", META: "メタ解析・SR（暫定判定）", REVIEW: "レビュー（暫定判定）", OBS: "観察研究（暫定判定）", OTHER: "研究種別未判定" };
 const REL_LABEL = { root: "起点論文", past: "過去文献", future: "未来文献", both: "過去・未来の両方", expanded: "追加文献" };
 
@@ -53,8 +53,6 @@ const Graph = {
           "text-background-padding": "2px"
         }},
         { selector: "node[rel='root']", style: { "z-index": 10 } },
-        { selector: "node[study='OTHER']", style: { "border-style": "dashed", "border-color": "#98A6AF" } },
-        { selector: "node[study='OTHER'][rel='root']", style: { "border-style": "solid", "border-color": "#7A1F1F" } },
         { selector: "edge", style: {
           "width": 1.4, "line-color": "#B9C6CE", "opacity": 0.3,
           "target-arrow-shape": "triangle", "target-arrow-color": "#B9C6CE",
@@ -454,8 +452,8 @@ const Graph = {
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,1 13,7 7,13 1,7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>RCT</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,1 12.5,4 12.5,10 7,13 1.5,10 1.5,4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>メタ解析・SR</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><rect x="1.5" y="3" width="11" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>レビュー</div>' +
-      '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>観察研究</div>' +
-      '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2.5 2"/></svg>その他・未判定（点線枠）</div>';
+      '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,1.5 13,12.5 1,12.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>観察研究</div>' +
+      '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>その他・未判定</div>';
     const colorName = { direction: "引用方向", era: "出版年代", importance: "重要度（被引用数）", mono: "単色" }[this.colorMode];
     legend.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
       "<h3>形：研究の種類（タイトルからの暫定判定）</h3>" + shapes +

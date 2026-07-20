@@ -18,6 +18,7 @@ document.getElementById("layout-sel").addEventListener("change", e => Graph.setL
 document.getElementById("dir-sel").addEventListener("change", e => Graph.setDirectionFilter(e.target.value));
 document.getElementById("cluster-chk").addEventListener("change", e => Graph.setClusterEnabled(e.target.checked));
 document.getElementById("keep-sel").addEventListener("change", e => Graph.setKeepTop(parseInt(e.target.value, 10)));
+document.getElementById("btn-toolbar").addEventListener("click", () => document.getElementById("toolbar").classList.toggle("open"));
 document.getElementById("color-sel").addEventListener("change", e => Graph.setColorMode(e.target.value));
 document.getElementById("btn-relayout").addEventListener("click", () => Graph.runLayout());
 document.getElementById("btn-fit").addEventListener("click", () => Graph.fit());

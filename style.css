@@ -188,7 +188,11 @@ footer{
 }
 
 /* ---------- mobile ---------- */
+.mobile-only{display:none;}
 @media (max-width:760px){
+  .mobile-only{display:inline-block;}
+  .toolbar{display:none;}
+  .toolbar.open{display:flex;}
   #panel{
     position:absolute; left:0; right:0; bottom:0; top:auto; width:auto;
     max-height:52%; border-left:none; border-top:1px solid var(--line);
