@@ -10,17 +10,18 @@ const COLORS = {
     ["2020年代", 2020, 2029, "#EE6677"],
     ["出版年不明", null, null, "#BBBBBB"]
   ],
-  importance: [
-    ["1,000回以上", 1000, "#0F5F5B"],
-    ["500〜999回", 500, "#338782"],
-    ["100〜499回", 100, "#63AFA9"],
-    ["10〜99回", 10, "#9CCFCB"],
-    ["0〜9回", 0, "#CFE8E6"]
-  ],
   mono: "#5B7183"
 };
-const SHAPES = { RCT: "diamond", META: "hexagon", REVIEW: "round-rectangle", OBS: "round-triangle", OTHER: "ellipse" };
-const STUDY_LABEL = { RCT: "RCT（暫定判定）", META: "メタ解析・SR（暫定判定）", REVIEW: "レビュー（暫定判定）", OBS: "観察研究（暫定判定）", OTHER: "研究種別未判定" };
+const SHAPES = { RCT: "diamond", META: "hexagon", REVIEW: "round-rectangle", OBS: "round-triangle", GUIDE: "star", CASE: "tag", OTHER: "ellipse" };
+const STUDY_LABEL = { RCT: "RCT", META: "メタ解析・SR", REVIEW: "レビュー", OBS: "観察研究", GUIDE: "ガイドライン", CASE: "症例報告", OTHER: "種別未判定" };
+
+/* 重要度（被引用数）の色と閾値プリセット（濃い→薄い） */
+const IMP_COLORS = ["#0F5F5B", "#338782", "#63AFA9", "#9CCFCB", "#CFE8E6"];
+const IMP_PRESETS = {
+  low:    [300, 100, 30, 10],
+  normal: [1000, 500, 100, 10],
+  high:   [5000, 1000, 500, 100]
+};
 const REL_LABEL = { root: "起点論文", past: "過去文献", future: "未来文献", both: "過去・未来の両方", expanded: "追加文献" };
 
 const Graph = {
@@ -154,9 +155,13 @@ const Graph = {
     for (const [, a, b, c] of COLORS.era) { if (a !== null && y >= a && y <= b) return c; }
     return "#BBBBBB";
   },
+  impPreset: "normal",
+  setImpPreset(p) { this.impPreset = p; this.refreshColors(); },
   impColor(c) {
-    for (const [, min, col] of COLORS.importance) { if ((c || 0) >= min) return col; }
-    return "#CFE8E6";
+    const t = IMP_PRESETS[this.impPreset] || IMP_PRESETS.normal;
+    const v = c || 0;
+    for (let i = 0; i < t.length; i++) { if (v >= t[i]) return IMP_COLORS[i]; }
+    return IMP_COLORS[IMP_COLORS.length - 1];
   },
   nodeColor(d) {
     if (this.colorMode === "direction") return COLORS.direction[d.rel] || COLORS.direction.expanded;
@@ -463,10 +468,18 @@ const Graph = {
         rows += '<div class="lg-row"><span class="sw" style="background:' + c + '"></span>' + lab + "</div>";
       }
     } else if (this.colorMode === "importance") {
+      const t = IMP_PRESETS[this.impPreset] || IMP_PRESETS.normal;
+      const labs = [
+        t[0].toLocaleString() + "回以上",
+        t[1].toLocaleString() + "〜" + (t[0] - 1).toLocaleString() + "回",
+        t[2].toLocaleString() + "〜" + (t[1] - 1).toLocaleString() + "回",
+        t[3].toLocaleString() + "〜" + (t[2] - 1).toLocaleString() + "回",
+        "0〜" + (t[3] - 1).toLocaleString() + "回"
+      ];
       rows += '<div class="lg-row" style="color:var(--sub)">被引用数</div>';
-      for (const [lab, , c] of COLORS.importance) {
-        rows += '<div class="lg-row"><span class="sw" style="background:' + c + '"></span>' + lab + "</div>";
-      }
+      labs.forEach((lab, i) => {
+        rows += '<div class="lg-row"><span class="sw" style="background:' + IMP_COLORS[i] + '"></span>' + lab + "</div>";
+      });
     } else {
       rows += '<div class="lg-row"><span class="sw" style="background:' + COLORS.mono + '"></span>すべての論文</div>';
     }
@@ -475,10 +488,12 @@ const Graph = {
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,1 12.5,4 12.5,10 7,13 1.5,10 1.5,4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>メタ解析・SR</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><rect x="1.5" y="3" width="11" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>レビュー</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,1.5 13,12.5 1,12.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>観察研究</div>' +
+      '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,0.8 8.8,5.1 13.2,5.3 9.8,8.1 11,12.6 7,10.1 3,12.6 4.2,8.1 0.8,5.3 5.2,5.1" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>ガイドライン</div>' +
+      '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="1,3.5 9.5,3.5 13,7 9.5,10.5 1,10.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>症例報告</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>その他・未判定</div>';
     const colorName = { direction: "引用方向", era: "出版年代", importance: "重要度（被引用数）", mono: "単色" }[this.colorMode];
     legend.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
-      "<h3>形：研究の種類（タイトルからの暫定判定）</h3>" + shapes +
+      "<h3>形：研究の種類（PubMed分類／なければタイトルから暫定）</h3>" + shapes +
       '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>点線の枠「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>線はノードに触れる・選択すると強調表示されます</div>';
     legend.hidden = !this.legendVisible;
   },

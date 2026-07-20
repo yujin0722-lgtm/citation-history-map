@@ -52,6 +52,14 @@
       <option value="mono">単色</option>
     </select>
   </div>
+  <div class="tool" id="imp-tool" hidden>
+    <label for="imp-sel">色の区切り</label>
+    <select id="imp-sel">
+      <option value="low">低め（300 / 100 / 30 / 10）</option>
+      <option value="normal" selected>標準（1000 / 500 / 100 / 10）</option>
+      <option value="high">高め（5000 / 1000 / 500 / 100）</option>
+    </select>
+  </div>
   <div class="tool">
     <label for="limit-sel">表示件数</label>
     <select id="limit-sel">
@@ -142,7 +150,7 @@
 <footer>
   データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
   「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
-  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.9
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.11
 </footer>
 
 <!-- 汎用モーダル -->

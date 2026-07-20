@@ -21,7 +21,11 @@ document.getElementById("keep-sel").addEventListener("change", e => Graph.setKee
 document.getElementById("btn-toolbar").addEventListener("click", () => document.getElementById("toolbar").classList.toggle("open"));
 document.getElementById("size-sel").addEventListener("change", e => Graph.setSizeMode(e.target.value));
 document.getElementById("btn-legend").addEventListener("click", () => Graph.setLegendVisible(!Graph.legendVisible));
-document.getElementById("color-sel").addEventListener("change", e => Graph.setColorMode(e.target.value));
+document.getElementById("color-sel").addEventListener("change", e => {
+  Graph.setColorMode(e.target.value);
+  document.getElementById("imp-tool").hidden = (e.target.value !== "importance");
+});
+document.getElementById("imp-sel").addEventListener("change", e => Graph.setImpPreset(e.target.value));
 document.getElementById("btn-relayout").addEventListener("click", () => Graph.runLayout());
 document.getElementById("btn-fit").addEventListener("click", () => Graph.fit());
 document.getElementById("search-in").addEventListener("input", e => Graph.search(e.target.value.trim()));
@@ -67,6 +71,9 @@ async function createNetwork() {
 
     setLoading("未来の引用文献を取得しています…");
     const future = await fetchFuturePapers(root.id, displayLimit());
+
+    setLoading("PubMedから研究種別を取得しています…");
+    await enrichStudyTypes([root, ...past.papers, ...future.papers]);
 
     setLoading("ネットワーク図を作成しています…");
     root.loadedPast = true;
@@ -115,7 +122,8 @@ function renderPanel(p) {
       '<button class="fav-btn ' + (fav ? "on" : "") + '" id="p-fav" aria-label="お気に入りに登録">' + (fav ? "★" : "☆") + "</button>" +
       "<div>" +
         '<span class="p-tag">' + (REL_LABEL[p.rel] || "") + "</span>" +
-        '<span class="p-tag">' + (STUDY_LABEL[p.study] || "") + "</span>" +
+        '<span class="p-tag">' + (STUDY_LABEL[p.study] || "") +
+          (p.study === "OTHER" ? "" : (p.studySource === "pubmed" ? "（PubMed分類）" : "（暫定判定）")) + "</span>" +
         '<div class="p-title">' + escapeHtml(p.title) + "</div>" +
       "</div>" +
     "</div>" +
@@ -214,7 +222,10 @@ function confirmAndAdd(p, dirLabel, found, plannedCount, dup, newOnes) {
     "設定に基づき" + plannedCount + "件を追加します。\n" +
     "このうち" + dup + "件は既に表示されています。\n" +
     "新たに追加される論文は" + newOnes.length + "件です。\n続行しますか？" + warn;
-  openModal(dirLabel + "を展開", msg, () => {
+  openModal(dirLabel + "を展開", msg, async () => {
+    setLoading("PubMedから研究種別を取得しています…");
+    try { await enrichStudyTypes(newOnes); } catch (e) { /* 分類は補助情報 */ }
+    setLoading(null);
     Graph.addPapers(newOnes, new Set(favorites.keys()));
     if (dirLabel === "過去") p.loadedPast = true; else p.loadedFuture = true;
   });

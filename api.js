@@ -85,6 +85,7 @@ function classifyStudy(w) {
   if (/meta-?analys|systematic review/.test(t)) return "META";
   if (/randomi[sz]ed|randomi[sz]ation/.test(t)) return "RCT";
   if (/cohort|case-?control|cross-?sectional|observational|registry|surveillance|longitudinal|retrospective|prospective|follow-?up study/.test(t)) return "OBS";
+  if (/case report|case series/.test(t)) return "CASE";
   if (w.type === "review" || /\breview\b/.test(t)) return "REVIEW";
   return "OTHER";
 }
@@ -101,6 +102,7 @@ function toPaper(w, rel) {
     cites: (w.cited_by_count != null) ? w.cited_by_count : null,
     referencedWorks: (w.referenced_works || []).map(shortOAId),
     study: classifyStudy(w),
+    studySource: "title",
     rel: rel,
     loadedPast: false,
     loadedFuture: false
@@ -169,6 +171,55 @@ async function fetchFuturePapers(workId, limit) {
   const papers = (data.results || []).map(w => toPaper(w, "future"));
   const total = (data.meta && data.meta.count != null) ? data.meta.count : papers.length;
   return { papers: papers, total: total };
+}
+
+/* ============ PubMed Publication Type による研究種別の正式判定 ============
+   PMIDを持つ論文について、PubMed公式の文献種別（Publication Type）を取得し、
+   タイトルからの暫定判定を上書きする。取得失敗時は暫定判定のまま続行する。 */
+
+const EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi";
+
+function classifyFromPubTypes(types) {
+  const t = types.map(x => String(x).toLowerCase());
+  const has = s => t.some(x => x.includes(s));
+  if (has("meta-analysis") || has("systematic review")) return "META";
+  if (has("randomized controlled trial")) return "RCT";
+  if (has("guideline")) return "GUIDE";          // Practice Guideline / Guideline
+  if (has("observational study")) return "OBS";
+  if (has("case reports")) return "CASE";
+  if (has("review")) return "REVIEW";
+  return null;  // "Journal Article"のみ等 → タイトル暫定判定を維持
+}
+
+async function fetchPubTypes(pmids) {
+  const out = new Map();
+  for (let i = 0; i < pmids.length; i += 100) {
+    const chunk = pmids.slice(i, i + 100);
+    try {
+      const res = await fetch(EUTILS_BASE + "?db=pubmed&retmode=json&id=" + chunk.join(","));
+      if (!res.ok) continue;
+      const data = await res.json();
+      const r = data.result || {};
+      for (const id of chunk) {
+        const rec = r[id];
+        if (rec && Array.isArray(rec.pubtype)) {
+          const cat = classifyFromPubTypes(rec.pubtype);
+          if (cat) out.set(id, cat);
+        }
+      }
+    } catch (e) { /* 分類は補助情報なので、失敗しても処理を止めない */ }
+  }
+  return out;
+}
+
+async function enrichStudyTypes(papers) {
+  const withPmid = papers.filter(p => p && p.pmid);
+  if (!withPmid.length) return;
+  const map = await fetchPubTypes(withPmid.map(p => p.pmid));
+  for (const p of withPmid) {
+    const cat = map.get(p.pmid);
+    if (cat) { p.study = cat; p.studySource = "pubmed"; }
+  }
 }
 
 /* ============ エラーメッセージ ============ */

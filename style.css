@@ -59,6 +59,7 @@ header{
 }
 .toolbar[hidden]{display:none;}
 .tool{display:flex; align-items:center; gap:6px;}
+.tool[hidden]{display:none;}
 .tool label{font-size:12px; color:var(--sub); white-space:nowrap;}
 label.chk{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--sub); white-space:nowrap; cursor:pointer;}
 select,input[type=text]{
