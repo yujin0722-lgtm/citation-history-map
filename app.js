@@ -38,23 +38,40 @@ if (!HAS_STORAGE) {
 let currentRoot = null;
 let pendingAuto = false;
 
-function shareUrlFor(p) {
+function settingsParams() {
+  const q = new URLSearchParams();
+  q.set("lay", document.getElementById("layout-sel").value);
+  q.set("col", document.getElementById("color-sel").value);
+  q.set("dir", document.getElementById("dir-sel").value);
+  q.set("lim", document.getElementById("limit-sel").value);
+  q.set("keep", document.getElementById("keep-sel").value);
+  q.set("size", document.getElementById("size-sel").value);
+  q.set("imp", document.getElementById("imp-sel").value);
+  q.set("clu", document.getElementById("cluster-chk").checked ? "1" : "0");
+  return q;
+}
+function shareUrlFor(p, withSettings) {
   const idv = p.doi ? p.doi : (p.pmid ? p.pmid : null);
   if (!idv) return null;
-  return location.origin + location.pathname + "?id=" + encodeURIComponent(idv);
+  let u = location.origin + location.pathname + "?id=" + encodeURIComponent(idv);
+  if (withSettings) u += "&" + settingsParams().toString();
+  return u;
 }
 async function copyText(t) {
   try { await navigator.clipboard.writeText(t); return true; }
   catch (e) { return false; }
 }
-async function copyShare(p) {
-  const u = shareUrlFor(p);
+async function copyShare(p, withSettings) {
+  const u = shareUrlFor(p, withSettings);
   if (!u) {
     openModal("リンクのコピー", "この論文はDOI・PMIDが登録されていないため、リンクを作成できません。", null, "閉じる");
     return;
   }
+  const desc = withSettings
+    ? "現在の表示設定（レイアウト・色分け・表示対象など）ごとコピーしました。開くと同じ見え方でネットワークが再現されます。"
+    : "リンクをコピーしました。開くと、この論文を起点にしたネットワークが自動で作成されます。";
   if (await copyText(u)) {
-    openModal("リンクのコピー", "リンクをコピーしました。開くと、この論文を起点にしたネットワークが自動で作成されます。\n\n" + u, null, "閉じる");
+    openModal("リンクのコピー", desc + "\n\n" + u, null, "閉じる");
   } else {
     openModal("リンクのコピー", "自動コピーができませんでした。以下のURLを手動でコピーしてください。\n\n" + u, null, "閉じる");
   }
@@ -64,14 +81,14 @@ document.getElementById("btn-share").addEventListener("click", () => {
     openModal("リンクのコピー", "先にネットワークを作成してください。", null, "閉じる");
     return;
   }
-  copyShare(currentRoot);
+  copyShare(currentRoot, true);
 });
-document.getElementById("btn-png").addEventListener("click", () => {
+document.getElementById("btn-png").addEventListener("click", async () => {
   if (Graph.papers.size === 0) {
     openModal("PNG保存", "先にネットワークを作成してください。", null, "閉じる");
     return;
   }
-  const uri = Graph.exportPng();
+  const uri = await Graph.exportPng();
   const a = document.createElement("a");
   a.href = uri;
   a.download = "citation-history-map_" + (currentRoot ? (currentRoot.pmid || "network") : "network") + ".png";
@@ -399,9 +416,32 @@ document.getElementById("key-cancel").addEventListener("click", () => kbg.classL
 kbg.addEventListener("click", e => { if (e.target === kbg) kbg.classList.remove("open"); });
 
 /* ============ 起動時：URLパラメータからの自動作成 ============ */
+function applyUrlSettings(sp) {
+  const map = [
+    ["lay", "layout-sel"], ["col", "color-sel"], ["dir", "dir-sel"],
+    ["lim", "limit-sel"], ["keep", "keep-sel"], ["size", "size-sel"], ["imp", "imp-sel"]
+  ];
+  for (const [k, id] of map) {
+    const v = sp.get(k);
+    if (!v) continue;
+    const el = document.getElementById(id);
+    if ([...el.options].some(o => o.value === v)) {
+      el.value = v;
+      el.dispatchEvent(new Event("change"));
+    }
+  }
+  const clu = sp.get("clu");
+  if (clu !== null) {
+    const c = document.getElementById("cluster-chk");
+    c.checked = (clu === "1");
+    c.dispatchEvent(new Event("change"));
+  }
+}
 (function () {
-  const idParam = new URLSearchParams(location.search).get("id");
+  const sp = new URLSearchParams(location.search);
+  const idParam = sp.get("id");
   if (!idParam) return;
+  applyUrlSettings(sp);
   document.getElementById("paper-in").value = idParam;
   if (getApiKey()) {
     createNetwork();

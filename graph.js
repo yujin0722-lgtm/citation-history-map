@@ -24,6 +24,23 @@ const IMP_PRESETS = {
 };
 const REL_LABEL = { root: "起点論文", past: "過去文献", future: "未来文献", both: "過去・未来の両方", expanded: "追加文献" };
 
+/* Canvas用：文字列を折り返して描画（maxLines行で省略） */
+function chmWrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+  let line = "", lines = 0;
+  for (const ch of String(text)) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      ctx.fillText(lines === maxLines - 1 ? line.slice(0, -1) + "…" : line, x, y + lines * lineHeight);
+      lines++;
+      if (lines >= maxLines) return;
+      line = ch;
+    } else {
+      line = test;
+    }
+  }
+  if (line && lines < maxLines) ctx.fillText(line, x, y + lines * lineHeight);
+}
+
 const Graph = {
   cy: null,
   papers: new Map(),        // id -> paper
@@ -569,12 +586,78 @@ const Graph = {
       .map(p => ({ paper: p, metric: "被引用数 " + (p.cites != null ? p.cites.toLocaleString() : "不明") + "回" }));
   },
 
-  /* ---------- PNG出力（出力時はラベルを表示状態にする） ---------- */
+  /* ---------- PNG出力 ----------
+     グラフ本体に加えて、起点論文タイトル・作成日・データ出典のヘッダーと
+     タイムラインの年目盛りを焼き込み、単体で資料に貼れる図版として書き出す。
+     出力時のみノードのタイトルを60文字まで表示する。 */
   exportPng() {
-    this.cy.nodes().removeClass("nolabel");
-    const uri = this.cy.png({ full: true, scale: 2, bg: "#F3F6F8", maxWidth: 8000, maxHeight: 8000 });
-    this.updateLabelVisibility();
-    return uri;
+    return new Promise(resolve => {
+      const nodes = this.cy.nodes();
+      nodes.removeClass("nolabel");
+      const orig = new Map();
+      nodes.forEach(n => {
+        if (n.data("isCluster")) return;
+        const p = this.papers.get(n.id());
+        if (!p) return;
+        orig.set(n.id(), n.data("label"));
+        const t = p.title.length > 60 ? p.title.slice(0, 60) + "…" : p.title;
+        n.data("label", t + (this.favIds.has(p.id) ? " ★" : ""));
+      });
+      const bb = this.cy.elements().boundingBox();
+      const scale = 2;
+      const uri = this.cy.png({ full: true, scale: scale, bg: "#F3F6F8", maxWidth: 8000, maxHeight: 8000 });
+      orig.forEach((lab, id) => this.cy.getElementById(id).data("label", lab));
+      this.updateLabelVisibility();
+
+      const img = new Image();
+      img.onload = () => {
+        const mL = 50, mR = 50, mT = 130;
+        const showAxis = (this.layoutMode === "timeline" && this._cols.length > 0);
+        const mB = showAxis ? 80 : 40;
+        const c = document.createElement("canvas");
+        c.width = img.width + mL + mR;
+        c.height = img.height + mT + mB;
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#F3F6F8";
+        ctx.fillRect(0, 0, c.width, c.height);
+
+        const rootP = this.papers.get(this.rootId);
+        ctx.fillStyle = "#1C2B33";
+        ctx.font = "bold 28px sans-serif";
+        chmWrapText(ctx, rootP ? rootP.title : "", mL, 48, c.width - mL - mR, 36, 2);
+        ctx.font = "16px sans-serif";
+        ctx.fillStyle = "#5B6B77";
+        const today = new Date().toISOString().slice(0, 10);
+        ctx.fillText("Citation History Map ｜ 作成日 " + today + " ｜ データ: OpenAlex / PubMed", mL, mT - 16);
+
+        ctx.drawImage(img, mL, mT);
+
+        if (showAxis) {
+          ctx.strokeStyle = "#9AA7B0";
+          ctx.fillStyle = "#5B6B77";
+          ctx.textAlign = "center";
+          const axisY = mT + img.height + 8;
+          for (const col of this._cols) {
+            const x = mL + (col.x - bb.x1) * scale;
+            if (x < mL - 30 || x > c.width - mR + 30) continue;
+            ctx.font = "15px sans-serif";
+            ctx.beginPath();
+            ctx.moveTo(x, axisY);
+            ctx.lineTo(x, axisY + 10);
+            ctx.stroke();
+            ctx.fillText(col.label, x, axisY + 30);
+            if (col.gapBefore > 0) {
+              const gx = mL + (col.x - 65 - bb.x1) * scale;
+              ctx.font = "13px sans-serif";
+              ctx.fillText("⋯" + col.gapBefore + "年⋯", gx, axisY + 30);
+            }
+          }
+          ctx.textAlign = "left";
+        }
+        resolve(c.toDataURL("image/png"));
+      };
+      img.src = uri;
+    });
   },
 
   /* ---------- お気に入り表示 ---------- */
