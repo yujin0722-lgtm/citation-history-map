@@ -40,8 +40,8 @@ const Graph = {
       style: [
         { selector: "node", style: {
           "shape": e => SHAPES[e.data("study")] || "ellipse",
-          "width": e => this.nodeSize(e.data("cites")),
-          "height": e => this.nodeSize(e.data("cites")),
+          "width": e => this.nodeSize(e.data("cites"), e.data("study")),
+          "height": e => this.nodeSize(e.data("cites"), e.data("study")),
           "background-color": e => this.nodeColor(e.data()),
           "border-width": e => e.data("rel") === "root" ? 4 : 1.5,
           "border-color": e => e.data("rel") === "root" ? "#7A1F1F" : "#FFFFFF",
@@ -131,7 +131,24 @@ const Graph = {
   },
 
   /* ---------- 見た目の計算 ---------- */
-  nodeSize(c) { return Math.max(16, Math.min(44, 8 + Math.log10((c || 0) + 1) * 12)); },
+  /* ノードの大きさ：被引用数の対数スケール。傾斜は3段階から選択。
+     「その他・未判定」は一回り小さく表示する。 */
+  sizeMode: "normal",
+  _sizeParams: {
+    soft:   { base: 9, k: 8,  min: 15, max: 34 },
+    normal: { base: 8, k: 12, min: 16, max: 44 },
+    strong: { base: 5, k: 19, min: 13, max: 60 }
+  },
+  nodeSize(c, study) {
+    const p = this._sizeParams[this.sizeMode] || this._sizeParams.normal;
+    let s = Math.max(p.min, Math.min(p.max, p.base + Math.log10((c || 0) + 1) * p.k));
+    if (study === "OTHER") s = Math.max(12, s * 0.65);
+    return s;
+  },
+  setSizeMode(mode) {
+    this.sizeMode = mode;
+    this.cy.style().update();
+  },
   eraColor(y) {
     if (y == null) return "#BBBBBB";
     for (const [, a, b, c] of COLORS.era) { if (a !== null && y >= a && y <= b) return c; }
@@ -424,6 +441,11 @@ const Graph = {
   },
 
   /* ---------- 色・凡例 ---------- */
+  legendVisible: true,
+  setLegendVisible(on) {
+    this.legendVisible = on;
+    document.getElementById("legend").hidden = !on;
+  },
   setColorMode(mode) { this.colorMode = mode; this.refreshColors(); },
   refreshColors() {
     this.cy.nodes().forEach(n => n.style("background-color", this.nodeColor(n.data())));
@@ -458,7 +480,7 @@ const Graph = {
     legend.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
       "<h3>形：研究の種類（タイトルからの暫定判定）</h3>" + shapes +
       '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>点線の枠「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>線はノードに触れる・選択すると強調表示されます</div>';
-    legend.hidden = false;
+    legend.hidden = !this.legendVisible;
   },
 
   /* ---------- 強調・選択 ---------- */

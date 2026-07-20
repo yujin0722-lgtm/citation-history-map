@@ -24,7 +24,7 @@
   <input type="text" id="paper-in" placeholder="DOI または PMID を入力（例：10.1056/NEJMoa2035389）"
          aria-label="DOIまたはPMIDを入力">
   <button id="btn-create" class="primary">ネットワークを作成</button>
-  <span class="hint">入力例：<code>10.1056/NEJMoa2035389</code>／<code>PMID: 33301246</code>／DOIやPubMedのURLも可</span>
+  <span class="hint">入力できるもの：DOI ／ PMID ／ DOIのURL ／ PubMedのURL</span>
   <div id="input-error" class="input-error" role="alert" hidden></div>
 </section>
 
@@ -79,6 +79,15 @@
     <label for="search-in">検索</label>
     <input type="text" id="search-in" placeholder="タイトルの一部" aria-label="表示中の論文タイトルを検索">
   </div>
+  <div class="tool">
+    <label for="size-sel">大きさの差</label>
+    <select id="size-sel">
+      <option value="soft">小さめ</option>
+      <option value="normal" selected>標準</option>
+      <option value="strong">強調</option>
+    </select>
+  </div>
+  <button id="btn-legend">凡例</button>
   <button id="btn-rank">上位リスト</button>
   <button id="btn-relayout">配置を整える</button>
   <button id="btn-fit">全体を画面に収める</button>
@@ -133,7 +142,7 @@
 <footer>
   データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
   「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
-  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.8
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.9
 </footer>
 
 <!-- 汎用モーダル -->
