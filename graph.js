@@ -569,6 +569,14 @@ const Graph = {
       .map(p => ({ paper: p, metric: "被引用数 " + (p.cites != null ? p.cites.toLocaleString() : "不明") + "回" }));
   },
 
+  /* ---------- PNG出力（出力時はラベルを表示状態にする） ---------- */
+  exportPng() {
+    this.cy.nodes().removeClass("nolabel");
+    const uri = this.cy.png({ full: true, scale: 2, bg: "#F3F6F8", maxWidth: 8000, maxHeight: 8000 });
+    this.updateLabelVisibility();
+    return uri;
+  },
+
   /* ---------- お気に入り表示 ---------- */
   updateFavStar(id, on) {
     if (on) this.favIds.add(id); else this.favIds.delete(id);

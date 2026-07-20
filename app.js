@@ -34,6 +34,52 @@ if (!HAS_STORAGE) {
   showInputError("このブラウザではデータ保存（Local Storage）が利用できないため、お気に入りとAPIキーは保存されません。通常モードのブラウザでの利用をおすすめします。");
 }
 
+/* ============ URL共有・PNG出力 ============ */
+let currentRoot = null;
+let pendingAuto = false;
+
+function shareUrlFor(p) {
+  const idv = p.doi ? p.doi : (p.pmid ? p.pmid : null);
+  if (!idv) return null;
+  return location.origin + location.pathname + "?id=" + encodeURIComponent(idv);
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; }
+  catch (e) { return false; }
+}
+async function copyShare(p) {
+  const u = shareUrlFor(p);
+  if (!u) {
+    openModal("リンクのコピー", "この論文はDOI・PMIDが登録されていないため、リンクを作成できません。", null, "閉じる");
+    return;
+  }
+  if (await copyText(u)) {
+    openModal("リンクのコピー", "リンクをコピーしました。開くと、この論文を起点にしたネットワークが自動で作成されます。\n\n" + u, null, "閉じる");
+  } else {
+    openModal("リンクのコピー", "自動コピーができませんでした。以下のURLを手動でコピーしてください。\n\n" + u, null, "閉じる");
+  }
+}
+document.getElementById("btn-share").addEventListener("click", () => {
+  if (!currentRoot) {
+    openModal("リンクのコピー", "先にネットワークを作成してください。", null, "閉じる");
+    return;
+  }
+  copyShare(currentRoot);
+});
+document.getElementById("btn-png").addEventListener("click", () => {
+  if (Graph.papers.size === 0) {
+    openModal("PNG保存", "先にネットワークを作成してください。", null, "閉じる");
+    return;
+  }
+  const uri = Graph.exportPng();
+  const a = document.createElement("a");
+  a.href = uri;
+  a.download = "citation-history-map_" + (currentRoot ? (currentRoot.pmid || "network") : "network") + ".png";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
 /* ============ 入力〜ネットワーク作成 ============ */
 function displayLimit() { return parseInt(document.getElementById("limit-sel").value, 10); }
 
@@ -82,6 +128,9 @@ async function createNetwork() {
     document.getElementById("toolbar").hidden = false;
     Graph.build(root, past.papers, future.papers, new Set(favorites.keys()));
     renderEmptyPanel();
+    currentRoot = root;
+    const su = shareUrlFor(root);
+    if (su) history.replaceState(null, "", su);
 
     const notes = [];
     if (past.total === 0) notes.push("この論文には引用文献情報が登録されていません。");
@@ -139,6 +188,9 @@ function renderPanel(p) {
       (p.pmid
         ? '<button id="p-pubmed">PubMedを開く</button>'
         : '<span class="note">PubMed登録なし</span>') +
+      ((p.doi || p.pmid)
+        ? '<button id="p-share">この論文を起点にしたリンクをコピー</button>'
+        : "") +
       '<button id="p-past">過去を展開</button>' +
       '<button id="p-future">未来を展開</button>' +
     "</div>";
@@ -152,6 +204,8 @@ function renderPanel(p) {
   if (pm) pm.addEventListener("click", () => {
     window.open("https://pubmed.ncbi.nlm.nih.gov/" + p.pmid + "/", "_blank", "noopener,noreferrer");
   });
+  const sh = document.getElementById("p-share");
+  if (sh) sh.addEventListener("click", () => copyShare(p));
   document.getElementById("p-past").addEventListener("click", () => expandNode(p, "past"));
   document.getElementById("p-future").addEventListener("click", () => expandNode(p, "future"));
 }
@@ -339,6 +393,20 @@ document.getElementById("key-save").addEventListener("click", () => {
   if (!v) { return; }
   saveApiKey(v);
   kbg.classList.remove("open");
+  if (pendingAuto) { pendingAuto = false; createNetwork(); }
 });
 document.getElementById("key-cancel").addEventListener("click", () => kbg.classList.remove("open"));
 kbg.addEventListener("click", e => { if (e.target === kbg) kbg.classList.remove("open"); });
+
+/* ============ 起動時：URLパラメータからの自動作成 ============ */
+(function () {
+  const idParam = new URLSearchParams(location.search).get("id");
+  if (!idParam) return;
+  document.getElementById("paper-in").value = idParam;
+  if (getApiKey()) {
+    createNetwork();
+  } else {
+    pendingAuto = true;
+    openKeyModal();
+  }
+})();
