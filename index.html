@@ -78,13 +78,13 @@
       <option selected>30</option><option>50</option><option>100</option>
     </select>
   </div>
-  <label class="chk" for="cluster-chk"><input type="checkbox" id="cluster-chk" checked>同年の下位を畳む</label>
   <div class="tool">
-    <label for="keep-sel">各年の個別表示</label>
+    <label class="chk" for="cluster-chk"><input type="checkbox" id="cluster-chk" checked>同じ年に論文が多いときは、上位</label>
     <select id="keep-sel">
       <option>3</option><option>5</option><option selected>8</option>
       <option>10</option><option>15</option>
     </select>
+    <span class="chk-tail">件だけ表示し、残りを「ほか○件」にまとめる</span>
   </div>
   <div class="tool">
     <label for="size-sel">大きさの差</label>
@@ -146,7 +146,7 @@
 <footer>
   データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
   「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
-  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.15
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.16
 </footer>
 
 <!-- 汎用モーダル -->

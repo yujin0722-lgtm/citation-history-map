@@ -15,8 +15,26 @@ Graph.init({
 document.getElementById("btn-create").addEventListener("click", createNetwork);
 document.getElementById("paper-in").addEventListener("keydown", e => { if (e.key === "Enter") createNetwork(); });
 document.getElementById("dir-sel").addEventListener("change", e => Graph.setDirectionFilter(e.target.value));
-document.getElementById("cluster-chk").addEventListener("change", e => Graph.setClusterEnabled(e.target.checked));
+document.getElementById("cluster-chk").addEventListener("change", e => {
+  document.getElementById("keep-sel").disabled = !e.target.checked;
+  Graph.setClusterEnabled(e.target.checked);
+});
 document.getElementById("keep-sel").addEventListener("change", e => Graph.setKeepTop(parseInt(e.target.value, 10)));
+document.getElementById("limit-sel").addEventListener("change", () => {
+  if (!currentRoot || busy) return;
+  const rebuild = () => {
+    document.getElementById("paper-in").value = currentRoot.doi || currentRoot.pmid || "";
+    createNetwork();
+  };
+  const hasExpanded = [...Graph.papers.values()].some(p => p.rel === "expanded");
+  if (hasExpanded) {
+    openModal("表示件数の変更",
+      "表示件数を反映するため、ネットワークを作り直します。展開で追加した論文はリセットされます。続行しますか？",
+      rebuild);
+  } else {
+    rebuild();
+  }
+});
 document.getElementById("btn-settings").addEventListener("click", () => {
   const sp = document.getElementById("settings-panel");
   sp.hidden = !sp.hidden;
