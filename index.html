@@ -13,7 +13,6 @@
   <div class="app-name">Citation History Map</div>
   <div class="app-sub">引用の歴史をたどる、論文読解支援ツール</div>
   <div class="head-btns">
-    <button id="btn-toolbar" class="mobile-only">表示設定</button>
     <button id="btn-fav">★ お気に入り</button>
     <button id="btn-key">APIキー設定</button>
   </div>
@@ -35,22 +34,25 @@
   <span id="loading-text">論文を確認しています…</span>
 </div>
 
-<div class="toolbar" id="toolbar" role="toolbar" aria-label="表示設定" hidden>
+<div class="toolbar" id="toolbar" role="toolbar" aria-label="操作" hidden>
+  <button id="btn-settings">⚙ 表示設定</button>
   <div class="tool">
-    <label for="layout-sel">レイアウト</label>
-    <select id="layout-sel">
-      <option value="timeline">過去・未来（タイムライン）</option>
-      <option value="radial">放射状</option>
-      <option value="free">自由ネットワーク</option>
-    </select>
+    <label for="search-in">検索</label>
+    <input type="text" id="search-in" placeholder="タイトルの一部" aria-label="表示中の論文タイトルを検索">
   </div>
+  <button id="btn-rank">上位リスト</button>
+  <button id="btn-relayout">表示を整える</button>
+  <button id="btn-share">リンクをコピー</button>
+  <button id="btn-png">PNG保存</button>
+</div>
+
+<div class="toolbar settings-row" id="settings-panel" role="group" aria-label="表示設定" hidden>
   <div class="tool">
     <label for="color-sel">色分け</label>
     <select id="color-sel">
       <option value="direction">引用方向</option>
       <option value="era">出版年代</option>
       <option value="importance">重要度（被引用数）</option>
-      <option value="mono">単色</option>
     </select>
   </div>
   <div class="tool" id="imp-tool" hidden>
@@ -62,18 +64,18 @@
     </select>
   </div>
   <div class="tool">
+    <label for="dir-sel">表示対象</label>
+    <select id="dir-sel">
+      <option value="both">引用＋被引用</option>
+      <option value="past">引用文献のみ（過去）</option>
+      <option value="future">被引用文献のみ（未来）</option>
+    </select>
+  </div>
+  <div class="tool">
     <label for="limit-sel">表示件数</label>
     <select id="limit-sel">
       <option>10</option><option>20</option>
       <option selected>30</option><option>50</option><option>100</option>
-    </select>
-  </div>
-  <div class="tool">
-    <label for="dir-sel">表示対象</label>
-    <select id="dir-sel">
-      <option value="both">過去＋未来</option>
-      <option value="past">過去のみ</option>
-      <option value="future">未来のみ</option>
     </select>
   </div>
   <label class="chk" for="cluster-chk"><input type="checkbox" id="cluster-chk" checked>同年の下位を畳む</label>
@@ -85,10 +87,6 @@
     </select>
   </div>
   <div class="tool">
-    <label for="search-in">検索</label>
-    <input type="text" id="search-in" placeholder="タイトルの一部" aria-label="表示中の論文タイトルを検索">
-  </div>
-  <div class="tool">
     <label for="size-sel">大きさの差</label>
     <select id="size-sel">
       <option value="soft">小さめ</option>
@@ -96,12 +94,7 @@
       <option value="strong">強調</option>
     </select>
   </div>
-  <button id="btn-legend">凡例</button>
-  <button id="btn-rank">上位リスト</button>
-  <button id="btn-relayout">配置を整える</button>
-  <button id="btn-fit">全体を画面に収める</button>
-  <button id="btn-share">リンクをコピー</button>
-  <button id="btn-png">PNG保存</button>
+  <button id="btn-legend">凡例の表示／非表示</button>
 </div>
 
 <div class="main">
@@ -109,9 +102,9 @@
     <div id="cy" aria-label="引用ネットワーク図"></div>
     <div id="cy-tip" role="tooltip"></div>
     <div id="welcome">
-      <p><strong>DOI または PMID を入力すると、その論文の「過去」と「未来」が地図になります。</strong></p>
-      <p>・過去文献：その論文が引用している論文<br>
-         ・未来文献：その論文を引用している論文<br>
+      <p><strong>DOI または PMID を入力すると、その論文の「引用文献（過去）」と「被引用文献（未来）」が地図になります。</strong></p>
+      <p>・引用文献（過去）：その論文が引用している論文<br>
+         ・被引用文献（未来）：その論文を引用している論文<br>
          ・矢印の先＝引用された論文／ノードの大きさ＝被引用数</p>
       <p class="small">初回のみ、右上の「APIキー設定」から OpenAlex の無料APIキーを登録してください。</p>
     </div>
@@ -153,7 +146,7 @@
 <footer>
   データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
   「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
-  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.14
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.15
 </footer>
 
 <!-- 汎用モーダル -->

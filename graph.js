@@ -9,8 +9,7 @@ const COLORS = {
     ["2010年代", 2010, 2019, "#CCBB44"],
     ["2020年代", 2020, 2029, "#EE6677"],
     ["出版年不明", null, null, "#BBBBBB"]
-  ],
-  mono: "#5B7183"
+  ]
 };
 const SHAPES = { RCT: "diamond", META: "hexagon", REVIEW: "round-rectangle", OBS: "round-triangle", GUIDE: "star", CASE: "tag", OTHER: "ellipse" };
 const STUDY_LABEL = { RCT: "RCT", META: "メタ解析・SR", REVIEW: "レビュー", OBS: "観察研究", GUIDE: "ガイドライン", CASE: "症例報告", OTHER: "種別未判定" };
@@ -22,7 +21,7 @@ const IMP_PRESETS = {
   normal: [1000, 500, 100, 10],
   high:   [5000, 1000, 500, 100]
 };
-const REL_LABEL = { root: "起点論文", past: "過去文献", future: "未来文献", both: "過去・未来の両方", expanded: "追加文献" };
+const REL_LABEL = { root: "起点論文", past: "引用文献（過去）", future: "被引用文献（未来）", both: "引用・被引用の両方", expanded: "追加文献" };
 
 /* Canvas用：文字列を折り返して描画（maxLines行で省略） */
 function chmWrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
@@ -46,7 +45,6 @@ const Graph = {
   papers: new Map(),        // id -> paper
   rootId: null,
   colorMode: "direction",
-  layoutMode: "timeline",
   callbacks: {},
 
   /* ---------- 初期化 ---------- */
@@ -184,7 +182,7 @@ const Graph = {
     if (this.colorMode === "direction") return COLORS.direction[d.rel] || COLORS.direction.expanded;
     if (this.colorMode === "era") return this.eraColor(d.year);
     if (this.colorMode === "importance") return this.impColor(d.cites);
-    return COLORS.mono;
+    return COLORS.direction[d.rel] || COLORS.direction.expanded;
   },
   shortTitle(t) { return t.length > 34 ? t.slice(0, 34) + "…" : t; },
   labelFor(p, isFav) { return this.shortTitle(p.title) + (isFav ? " ★" : ""); },
@@ -273,7 +271,7 @@ const Graph = {
       let hide = false;
       if (this.dirFilter === "past") hide = (rel === "future");
       else if (this.dirFilter === "future") hide = (rel === "past");
-      // 起点論文・両方に関係する文献・追加文献は常に表示
+      // 起点論文・引用被引用の両方に関係する文献・追加文献は常に表示
       n.toggleClass("dirhidden", hide);
     });
   },
@@ -345,12 +343,7 @@ const Graph = {
     this.runLayout();
   },
 
-  /* ---------- レイアウト ---------- */
-  setLayout(mode) {
-    this.layoutMode = mode;
-    document.getElementById("ruler").style.display = (mode === "timeline") ? "block" : "none";
-    this.runLayout();
-  },
+  /* ---------- レイアウト（タイムライン一本） ---------- */
   yearRange() {
     let min = Infinity, max = -Infinity;
     for (const p of this.papers.values()) {
@@ -416,17 +409,8 @@ const Graph = {
     return pos;
   },
   runLayout() {
-    if (this.layoutMode === "timeline") {
-      this.cy.layout({ name: "preset", positions: this.timelinePositions(),
-        animate: true, animationDuration: 350, fit: true, padding: 40 }).run();
-    } else if (this.layoutMode === "radial") {
-      this.cy.layout({ name: "concentric", animate: true, fit: true, padding: 40,
-        concentric: e => e.data("rel") === "root" ? 3 : (e.data("rel") === "expanded" ? 1 : 2),
-        levelWidth: () => 1, minNodeSpacing: 26 }).run();
-    } else {
-      this.cy.layout({ name: "cose", animate: "end", fit: true, padding: 40,
-        nodeRepulsion: 9000, idealEdgeLength: 90 }).run();
-    }
+    this.cy.layout({ name: "preset", positions: this.timelinePositions(),
+      animate: true, animationDuration: 350, fit: true, padding: 40 }).run();
     this.updateRuler();
     this.updateLabelVisibility();
     setTimeout(() => this.updateLabelVisibility(), 450); // レイアウトのアニメーション完了後にも再判定
@@ -436,7 +420,7 @@ const Graph = {
   /* ---------- タイムライン年目盛（各列の年を表示） ---------- */
   updateRuler() {
     const ruler = document.getElementById("ruler");
-    if (this.layoutMode !== "timeline" || this.papers.size === 0 || !this._cols.length) {
+    if (this.papers.size === 0 || !this._cols.length) {
       ruler.style.display = "none"; return;
     }
     ruler.style.display = "block";
@@ -497,8 +481,6 @@ const Graph = {
       labs.forEach((lab, i) => {
         rows += '<div class="lg-row"><span class="sw" style="background:' + IMP_COLORS[i] + '"></span>' + lab + "</div>";
       });
-    } else {
-      rows += '<div class="lg-row"><span class="sw" style="background:' + COLORS.mono + '"></span>すべての論文</div>';
     }
     const shapes =
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,1 13,7 7,13 1,7" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>RCT</div>' +
@@ -508,7 +490,7 @@ const Graph = {
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="7,0.8 8.8,5.1 13.2,5.3 9.8,8.1 11,12.6 7,10.1 3,12.6 4.2,8.1 0.8,5.3 5.2,5.1" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>ガイドライン</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="1,3.5 9.5,3.5 13,7 9.5,10.5 1,10.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>症例報告</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>その他・未判定</div>';
-    const colorName = { direction: "引用方向", era: "出版年代", importance: "重要度（被引用数）", mono: "単色" }[this.colorMode];
+    const colorName = { direction: "引用方向", era: "出版年代", importance: "重要度（被引用数）" }[this.colorMode];
     legend.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
       "<h3>形：研究の種類（PubMed分類／なければタイトルから暫定）</h3>" + shapes +
       '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>点線の枠「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>線はノードに触れる・選択すると強調表示されます</div>';
@@ -612,7 +594,7 @@ const Graph = {
       const img = new Image();
       img.onload = () => {
         const mL = 50, mR = 50, mT = 130;
-        const showAxis = (this.layoutMode === "timeline" && this._cols.length > 0);
+        const showAxis = (this._cols.length > 0);
         const mB = showAxis ? 80 : 40;
         const c = document.createElement("canvas");
         c.width = img.width + mL + mR;

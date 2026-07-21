@@ -14,11 +14,13 @@ Graph.init({
 
 document.getElementById("btn-create").addEventListener("click", createNetwork);
 document.getElementById("paper-in").addEventListener("keydown", e => { if (e.key === "Enter") createNetwork(); });
-document.getElementById("layout-sel").addEventListener("change", e => Graph.setLayout(e.target.value));
 document.getElementById("dir-sel").addEventListener("change", e => Graph.setDirectionFilter(e.target.value));
 document.getElementById("cluster-chk").addEventListener("change", e => Graph.setClusterEnabled(e.target.checked));
 document.getElementById("keep-sel").addEventListener("change", e => Graph.setKeepTop(parseInt(e.target.value, 10)));
-document.getElementById("btn-toolbar").addEventListener("click", () => document.getElementById("toolbar").classList.toggle("open"));
+document.getElementById("btn-settings").addEventListener("click", () => {
+  const sp = document.getElementById("settings-panel");
+  sp.hidden = !sp.hidden;
+});
 document.getElementById("size-sel").addEventListener("change", e => Graph.setSizeMode(e.target.value));
 document.getElementById("btn-legend").addEventListener("click", () => Graph.setLegendVisible(!Graph.legendVisible));
 document.getElementById("color-sel").addEventListener("change", e => {
@@ -27,7 +29,6 @@ document.getElementById("color-sel").addEventListener("change", e => {
 });
 document.getElementById("imp-sel").addEventListener("change", e => Graph.setImpPreset(e.target.value));
 document.getElementById("btn-relayout").addEventListener("click", () => Graph.runLayout());
-document.getElementById("btn-fit").addEventListener("click", () => Graph.fit());
 document.getElementById("search-in").addEventListener("input", e => Graph.search(e.target.value.trim()));
 
 if (!HAS_STORAGE) {
@@ -40,7 +41,6 @@ let pendingAuto = false;
 
 function settingsParams() {
   const q = new URLSearchParams();
-  q.set("lay", document.getElementById("layout-sel").value);
   q.set("col", document.getElementById("color-sel").value);
   q.set("dir", document.getElementById("dir-sel").value);
   q.set("lim", document.getElementById("limit-sel").value);
@@ -136,10 +136,10 @@ async function createNetwork() {
     setLoading("論文を確認しています…");
     const root = await fetchRootWork(norm);
 
-    setLoading("過去の引用文献を取得しています…");
+    setLoading("引用文献（過去）を取得しています…");
     const past = await fetchPastPapers(root.referencedWorks, displayLimit());
 
-    setLoading("未来の引用文献を取得しています…");
+    setLoading("被引用文献（未来）を取得しています…");
     const future = await fetchFuturePapers(root.id, displayLimit());
 
     setLoading("PubMedから研究種別を取得しています…");
@@ -158,11 +158,11 @@ async function createNetwork() {
 
     const parts = [];
     parts.push(past.total === 0
-      ? "過去文献：OpenAlexに引用文献情報が登録されていません"
-      : "過去文献：OpenAlex登録の参考文献 " + past.total.toLocaleString() + "件中、上位" + past.papers.length + "件を表示");
+      ? "引用文献：OpenAlexに引用文献情報が登録されていません"
+      : "引用文献：OpenAlex登録の参考文献 " + past.total.toLocaleString() + "件中、上位" + past.papers.length + "件を表示");
     parts.push(future.total === 0
-      ? "未来文献：この論文を引用した論文はまだ登録されていません"
-      : "未来文献：" + future.total.toLocaleString() + "件中、上位" + future.papers.length + "件を表示");
+      ? "被引用文献：この論文を引用した論文はまだ登録されていません"
+      : "被引用文献：" + future.total.toLocaleString() + "件中、上位" + future.papers.length + "件を表示");
     showInputInfo(parts.join("　／　") + "　※OpenAlexの登録件数は、実際の論文の参考文献リストと一致しない場合があります。");
   } catch (e) {
     showInputError(apiErrorMessage(e));
@@ -220,8 +220,8 @@ function renderPanel(p) {
       ((p.doi || p.pmid)
         ? '<button id="p-share">この論文を起点にしたリンクをコピー</button>'
         : "") +
-      '<button id="p-past">過去を展開</button>' +
-      '<button id="p-future">未来を展開</button>' +
+      '<button id="p-past">引用文献を展開</button>' +
+      '<button id="p-future">被引用文献を展開</button>' +
     "</div>";
 
   document.getElementById("p-fav").addEventListener("click", () => toggleFav(p));
@@ -258,10 +258,10 @@ async function expandNode(p, dir) {
     if (dir === "past") {
       const refs = p.referencedWorks || [];
       if (!refs.length) {
-        openModal("過去を展開", "この論文には引用文献情報が登録されていません。", null, "閉じる");
+        openModal("引用文献を展開", "この論文には引用文献情報が登録されていません。", null, "閉じる");
         return;
       }
-      setLoading("過去の引用文献を取得しています…");
+      setLoading("引用文献（過去）を取得しています…");
       const unknownIds = refs.filter(id => !Graph.papers.has(id));
       const fetched = (await fetchWorksByIds(unknownIds)).map(w => toPaper(w, p.id === Graph.rootId ? "past" : "expanded"));
       const known = refs.filter(id => Graph.papers.has(id)).map(id => Graph.papers.get(id));
@@ -270,9 +270,9 @@ async function expandNode(p, dir) {
       const newOnes = planned.filter(x => !Graph.papers.has(x.id));
       const dup = planned.length - newOnes.length;
       setLoading(null);
-      confirmAndAdd(p, "過去", refs.length, planned.length, dup, newOnes);
+      confirmAndAdd(p, "past", refs.length, planned.length, dup, newOnes);
     } else {
-      setLoading("未来の引用文献を取得しています…");
+      setLoading("被引用文献（未来）を取得しています…");
       const res = await fetchFuturePapers(p.id, displayLimit());
       const rel = (p.id === Graph.rootId) ? "future" : "expanded";
       const papers = res.papers.map(x => { x.rel = rel; return x; });
@@ -280,10 +280,10 @@ async function expandNode(p, dir) {
       const dup = papers.length - newOnes.length;
       setLoading(null);
       if (res.total === 0) {
-        openModal("未来を展開", "この論文を引用した論文はまだ登録されていません。", null, "閉じる");
+        openModal("被引用文献を展開", "この論文を引用した論文はまだ登録されていません。", null, "閉じる");
         return;
       }
-      confirmAndAdd(p, "未来", res.total, papers.length, dup, newOnes);
+      confirmAndAdd(p, "future", res.total, papers.length, dup, newOnes);
     }
   } catch (e) {
     setLoading(null);
@@ -294,14 +294,15 @@ async function expandNode(p, dir) {
   }
 }
 
-function confirmAndAdd(p, dirLabel, found, plannedCount, dup, newOnes) {
+function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes) {
+  const dirLabel = (dir === "past") ? "引用文献" : "被引用文献";
   if (!newOnes.length) {
-    openModal(dirLabel + "を展開", dirLabel + "文献が" + found.toLocaleString() + "件見つかりましたが、上位" + plannedCount + "件はすべて表示済みです。表示件数の設定を増やすと、さらに取得できます。", null, "閉じる");
+    openModal(dirLabel + "を展開", dirLabel + "が" + found.toLocaleString() + "件見つかりましたが、上位" + plannedCount + "件はすべて表示済みです。表示件数の設定を増やすと、さらに取得できます。", null, "閉じる");
     return;
   }
   const warn = capCheck(newOnes.length);
   if (warn === null) return;
-  const msg = dirLabel + "文献が" + found.toLocaleString() + "件見つかりました。\n" +
+  const msg = dirLabel + "が" + found.toLocaleString() + "件見つかりました。\n" +
     "設定に基づき" + plannedCount + "件を追加します。\n" +
     "このうち" + dup + "件は既に表示されています。\n" +
     "新たに追加される論文は" + newOnes.length + "件です。\n続行しますか？" + warn;
@@ -310,7 +311,7 @@ function confirmAndAdd(p, dirLabel, found, plannedCount, dup, newOnes) {
     try { await enrichStudyTypes(newOnes); } catch (e) { /* 分類は補助情報 */ }
     setLoading(null);
     Graph.addPapers(newOnes, new Set(favorites.keys()));
-    if (dirLabel === "過去") p.loadedPast = true; else p.loadedFuture = true;
+    if (dir === "past") p.loadedPast = true; else p.loadedFuture = true;
   });
 }
 
@@ -430,7 +431,7 @@ kbg.addEventListener("click", e => { if (e.target === kbg) kbg.classList.remove(
 /* ============ 起動時：URLパラメータからの自動作成 ============ */
 function applyUrlSettings(sp) {
   const map = [
-    ["lay", "layout-sel"], ["col", "color-sel"], ["dir", "dir-sel"],
+    ["col", "color-sel"], ["dir", "dir-sel"],
     ["lim", "limit-sel"], ["keep", "keep-sel"], ["size", "size-sel"], ["imp", "imp-sel"]
   ];
   for (const [k, id] of map) {
