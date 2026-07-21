@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Citeline ― 引用の足跡</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect width='72' height='72' rx='16' fill='%231C2B33'/%3E%3Cpath d='M50 22 A19 19 0 1 0 50 50' fill='none' stroke='%23ffffff' stroke-width='7' stroke-linecap='round'/%3E%3Cline x1='23' y1='36' x2='52' y2='36' stroke='%235E9C98' stroke-width='3'/%3E%3Ccircle cx='23' cy='36' r='8' fill='%2363E6DF'/%3E%3Ccircle cx='52' cy='36' r='4.5' fill='%239CCFCB'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 </head>
@@ -18,6 +20,7 @@
       <circle cx="23" cy="36" r="7.5" fill="#0E6E6E"/>
       <circle cx="52" cy="36" r="4.5" fill="#63AFA9"/>
     </svg>
+    <img class="brand-mark-img" src="assets/icon-180.png" width="34" height="34" alt="" aria-hidden="true">
     <span class="app-name">Citeline</span>
   </a>
   <div class="app-sub">引用の足跡</div>
@@ -162,7 +165,7 @@
 <footer>
   データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
   「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
-  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.19
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.21
 </footer>
 
 
@@ -253,6 +256,8 @@
       <h4>データの限界について</h4>
       <p>この地図はOpenAlexに登録された引用関係のみを表示しており、
       実際の論文の参考文献リストと件数が一致しないことがあります（登録件数は画面に表示されます）。
+      特に、参考文献が0件と表示される論文でも、その論文に参考文献が無いわけではなく、
+      出版社が引用データを公開していないことが原因の場合が多くあります。これは論文の質とは関係しません。
       また「重要度」は被引用数などによる探索上の目安であり、研究の質を保証するものではありません。
       重要な判断には必ず原著をご確認ください。</p>
     </section>

@@ -188,12 +188,16 @@ async function createNetwork() {
 
     const parts = [];
     parts.push(past.total === 0
-      ? "引用文献：OpenAlexに引用文献情報が登録されていません"
+      ? "引用文献：OpenAlexには参考文献が登録されていません"
       : "引用文献：OpenAlex登録の参考文献 " + past.total.toLocaleString() + "件中、上位" + past.papers.length + "件を表示");
     parts.push(future.total === 0
       ? "被引用文献：この論文を引用した論文はまだ登録されていません"
       : "被引用文献：" + future.total.toLocaleString() + "件中、上位" + future.papers.length + "件を表示");
-    showInputInfo(parts.join("　／　") + "　※OpenAlexの登録件数は、実際の論文の参考文献リストと一致しない場合があります。");
+    let tail = "　※OpenAlexの登録件数は、実際の論文の参考文献リストと一致しない場合があります。";
+    if (past.total === 0) {
+      tail += "参考文献が0件と表示される場合、出版社が引用データを公開していないことが原因のことが多く、論文の質とは関係しません（複数のデータベースを確認しても参照が見つからない論文もあります）。";
+    }
+    showInputInfo(parts.join("　／　") + tail);
   } catch (e) {
     showInputError(apiErrorMessage(e));
   } finally {
@@ -304,7 +308,7 @@ async function expandNode(p, dir) {
     if (dir === "past") {
       const refs = p.referencedWorks || [];
       if (!refs.length) {
-        openModal("引用文献を展開", "この論文には引用文献情報が登録されていません。", null, "閉じる");
+        openModal("引用文献を展開", "この論文にはOpenAlexに参考文献が登録されていません。出版社が引用データを公開していないことが原因のことが多く、論文の質とは関係しません。", null, "閉じる");
         return;
       }
       setLoading("引用文献（過去）を取得しています…");
