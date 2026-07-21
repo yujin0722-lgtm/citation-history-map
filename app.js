@@ -106,6 +106,12 @@ function showInputError(msg) {
   el.hidden = false;
 }
 function clearInputError() { document.getElementById("input-error").hidden = true; }
+function showInputInfo(msg) {
+  const el = document.getElementById("input-info");
+  el.textContent = msg;
+  el.hidden = false;
+}
+function clearInputInfo() { document.getElementById("input-info").hidden = true; }
 
 function setLoading(text) {
   const box = document.getElementById("loading");
@@ -117,6 +123,7 @@ function setLoading(text) {
 async function createNetwork() {
   if (busy) return;
   clearInputError();
+  clearInputInfo();
 
   const norm = normalizeInput(document.getElementById("paper-in").value);
   if (norm.error) { showInputError(norm.error); return; }
@@ -149,10 +156,14 @@ async function createNetwork() {
     const su = shareUrlFor(root);
     if (su) history.replaceState(null, "", su);
 
-    const notes = [];
-    if (past.total === 0) notes.push("この論文には引用文献情報が登録されていません。");
-    if (future.total === 0) notes.push("この論文を引用した論文はまだ登録されていません。");
-    if (notes.length) showInputError(notes.join(" "));
+    const parts = [];
+    parts.push(past.total === 0
+      ? "過去文献：OpenAlexに引用文献情報が登録されていません"
+      : "過去文献：OpenAlex登録の参考文献 " + past.total.toLocaleString() + "件中、上位" + past.papers.length + "件を表示");
+    parts.push(future.total === 0
+      ? "未来文献：この論文を引用した論文はまだ登録されていません"
+      : "未来文献：" + future.total.toLocaleString() + "件中、上位" + future.papers.length + "件を表示");
+    showInputInfo(parts.join("　／　") + "　※OpenAlexの登録件数は、実際の論文の参考文献リストと一致しない場合があります。");
   } catch (e) {
     showInputError(apiErrorMessage(e));
   } finally {
@@ -198,6 +209,7 @@ function renderPanel(p) {
       "<dt>出版年</dt><dd>" + (p.year != null ? p.year : "情報なし") + "</dd>" +
       "<dt>雑誌</dt><dd>" + escapeHtml(p.journal || "情報なし") + "</dd>" +
       "<dt>被引用数</dt><dd>" + (p.cites != null ? p.cites.toLocaleString() + " 回" : "取得不能") + "</dd>" +
+      "<dt>参考文献</dt><dd>OpenAlex登録 " + (p.referencedWorks ? p.referencedWorks.length : 0) + " 件</dd>" +
       "<dt>DOI</dt><dd>" + escapeHtml(p.doi || "登録なし") + "</dd>" +
       "<dt>PMID</dt><dd>" + escapeHtml(p.pmid || "登録なし") + "</dd>" +
     "</dl>" +
