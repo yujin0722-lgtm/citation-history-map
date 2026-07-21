@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Citeline ― 引用の足跡</title>
+<title>Citrail ― 引用を辿る</title>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
@@ -13,11 +13,11 @@
 <body>
 
 <header>
-  <a class="brand" href="./" aria-label="Citeline ホーム">
+  <a class="brand" href="./" aria-label="Citrail ホーム">
     <img class="brand-mark-img" src="assets/icon-180.png" width="34" height="34" alt="" aria-hidden="true">
     <span class="brand-text">
-      <span class="app-name">Citeline</span>
-      <span class="app-sub">引用の足跡</span>
+      <span class="app-name">Citrail</span>
+      <span class="app-sub">引用を辿る</span>
     </span>
   </a>
   <div class="head-btns">
@@ -89,7 +89,7 @@
     <select id="limit-sel">
       <option>10</option><option>20</option>
       <option selected>30</option><option>50</option><option>100</option>
-      <option value="200">200 ※</option><option value="300">300 ※</option>
+      <option value="200">200 ※</option>
     </select>
   </div>
   <div class="tool">
@@ -120,9 +120,10 @@
   <label class="chk"><input type="checkbox" class="tf-chk" value="REVIEW" checked>レビュー</label>
   <label class="chk"><input type="checkbox" class="tf-chk" value="CASE" checked>症例報告</label>
   <label class="chk"><input type="checkbox" class="tf-chk" value="OTHER" checked>その他・未判定</label>
-  <button id="tf-rct-only" class="tf-quick">RCTのみ</button>
+  <button id="tf-none" class="tf-quick">選択しない</button>
   <button id="tf-all" class="tf-quick">すべて</button>
-  <span class="tf-note">※判定は暫定を含むため取りこぼしがあり得ます。200件以上の表示は、タイプを絞った場合のみ可能です。</span>
+  <span class="tf-note">※判定は暫定を含むため取りこぼしがあり得ます。200件の表示は、タイプを絞った場合のみ可能です。</span>
+  <span id="tf-empty" class="tf-empty" hidden>表示する研究タイプが選ばれていません</span>
 </div>
 
 <div class="main">
@@ -180,7 +181,7 @@
 <footer>
   データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
   「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
-  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.23
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.24
 </footer>
 
 
@@ -274,7 +275,7 @@
       特に、参考文献が0件と表示される論文でも、その論文に参考文献が無いわけではなく、
       出版社が引用データを公開していないことが原因の場合が多くあります。これは論文の質とは関係しません。
       また、ガイドラインのように引用文献が非常に多い論文（数百件規模）は、表示件数の上限を超える部分が
-      表示されないため、引用の全体像を網羅的に把握する用途には向きません。Citelineは1本の論文の系譜を
+      表示されないため、引用の全体像を網羅的に把握する用途には向きません。Citrailは1本の論文の系譜を
       たどる探索ツールであり、網羅的な引用一覧ツールではない点にご留意ください。
       また「重要度」は被引用数などによる探索上の目安であり、研究の質を保証するものではありません。
       重要な判断には必ず原著をご確認ください。</p>
@@ -319,5 +320,7 @@
 <script src="api.js"></script>
 <script src="graph.js"></script>
 <script src="app.js"></script>
+<script src="panels.js"></script>
+<script src="ui.js"></script>
 </body>
 </html>

@@ -575,6 +575,7 @@ const Graph = {
     if (!arr.length) return [];
     if (crit === "hub") {
       return arr
+        .filter(p => p.rel !== "root")
         .map(p => ({ paper: p, d: this.cy.getElementById(p.id).degree(false) }))
         .sort((a, b) => b.d - a.d)
         .slice(0, n)
@@ -634,7 +635,7 @@ const Graph = {
         ctx.font = "16px sans-serif";
         ctx.fillStyle = "#5B6B77";
         const today = new Date().toISOString().slice(0, 10);
-        ctx.fillText("Citeline（引用の足跡）｜ 作成日 " + today + " ｜ データ: OpenAlex / PubMed", mL, mT - 16);
+        ctx.fillText("Citrail（引用を辿る）｜ 作成日 " + today + " ｜ データ: OpenAlex / PubMed", mL, mT - 16);
 
         ctx.drawImage(img, mL, mT);
 

@@ -78,6 +78,8 @@ header{
 .tf-label{font-size:12px; color:var(--sub); font-weight:600; white-space:nowrap;}
 .tf-note{font-size:11px; color:var(--sub); white-space:normal;}
 .tf-quick{font-size:11.5px; padding:3px 9px;}
+.tf-empty{font-size:12px; color:var(--error); font-weight:600; white-space:nowrap;}
+.tf-empty[hidden]{display:none;}
 .tool{display:flex; align-items:center; gap:6px;}
 .tool[hidden]{display:none;}
 .tool label{font-size:12px; color:var(--sub); white-space:nowrap;}
@@ -162,15 +164,15 @@ button.primary:hover{opacity:.9; color:#fff;}
   position:relative; transition:width .18s;
 }
 #panel-toggle{
-  position:absolute; top:8px; left:8px; z-index:2;
+  position:absolute; top:8px; right:8px; z-index:2;
   width:26px; height:26px; padding:0; border-radius:6px; font-size:16px; line-height:1;
   border:1px solid var(--line); background:#fff; color:var(--sub); cursor:pointer;
 }
 #panel-toggle:hover{border-color:var(--accent); color:var(--accent);}
-#panel-content{margin-top:4px;}
+#panel-content{margin-top:2px; padding-right:26px;}
 #panel.collapsed{width:34px; padding:8px 4px; overflow:visible;}
 #panel.collapsed #panel-content{display:none;}
-#panel.collapsed #panel-toggle{left:4px; transform:rotate(180deg);}
+#panel.collapsed #panel-toggle{right:4px; transform:rotate(180deg);}
 #panel .empty{color:var(--sub); font-size:13px; line-height:1.7; margin-top:8px;}
 .p-top{display:flex; align-items:flex-start; gap:8px;}
 .fav-btn{border:none; background:none; font-size:22px; line-height:1; cursor:pointer; color:#C9D3DA; padding:0;}
@@ -251,6 +253,7 @@ dd{word-break:break-all;}
 }
 
 body.fullscreen header,
+body.fullscreen .input-area,
 body.fullscreen footer{display:none;}
 footer{
   background:var(--panel); border-top:1px solid var(--line);
