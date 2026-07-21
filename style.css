@@ -15,7 +15,7 @@ body{
 /* ---------- header ---------- */
 header{
   background:var(--panel); border-bottom:1px solid var(--line);
-  padding:10px 18px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  padding:10px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
 }
 .brand{display:flex; align-items:center; gap:9px; text-decoration:none;}
 .brand-mark{display:none;}
@@ -24,7 +24,7 @@ header{
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
   font-size:22px; letter-spacing:.04em; font-weight:600; color:var(--ink);
 }
-.app-sub{color:var(--sub); font-size:12px;}
+.app-sub{color:var(--sub); font-size:12px; align-self:flex-end; padding-bottom:3px;}
 .head-btns{margin-left:auto; display:flex; gap:8px;}
 
 /* ---------- input area ---------- */
@@ -42,7 +42,14 @@ header{
 .input-info{
   width:100%; color:var(--accent); font-size:12.5px; line-height:1.6;
   background:var(--accent-soft); border:1px solid #BFDAD8; border-radius:6px; padding:8px 12px;
+  display:flex; align-items:flex-start; gap:10px;
 }
+#input-info-text{flex:1;}
+#input-info-close{
+  flex:none; border:none; background:none; color:var(--accent); cursor:pointer;
+  font-size:13px; padding:0 2px; line-height:1.4;
+}
+#input-info-close:hover{color:var(--ink);}
 
 /* ---------- loading ---------- */
 #loading{
@@ -66,6 +73,9 @@ header{
 }
 .toolbar[hidden]{display:none;}
 .toolbar.settings-row{background:#EDF3F5; border-bottom:1px solid var(--line);}
+.tf-label{font-size:12px; color:var(--sub); font-weight:600; white-space:nowrap;}
+.tf-note{font-size:11px; color:var(--sub); white-space:normal;}
+.tf-quick{font-size:11.5px; padding:3px 9px;}
 .tool{display:flex; align-items:center; gap:6px;}
 .tool[hidden]{display:none;}
 .tool label{font-size:12px; color:var(--sub); white-space:nowrap;}
@@ -238,7 +248,8 @@ dd{word-break:break-all;}
   background:var(--accent-soft); border-radius:8px; padding:10px 12px;
 }
 
-/* ---------- footer ---------- */
+body.fullscreen header,
+body.fullscreen footer{display:none;}
 footer{
   background:var(--panel); border-top:1px solid var(--line);
   font-size:11px; color:var(--sub); padding:6px 18px; line-height:1.6;

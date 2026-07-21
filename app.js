@@ -35,10 +35,57 @@ document.getElementById("limit-sel").addEventListener("change", () => {
     rebuild();
   }
 });
+document.getElementById("btn-fullscreen").addEventListener("click", () => {
+  const on = document.body.classList.toggle("fullscreen");
+  const btn = document.getElementById("btn-fullscreen");
+  btn.textContent = on ? "⛶ 全画面を終了" : "⛶ 全画面表示";
+  setTimeout(() => { if (Graph.cy) { Graph.cy.resize(); Graph.cy.fit(undefined, 40); } }, 60);
+});
 document.getElementById("btn-settings").addEventListener("click", () => {
   const sp = document.getElementById("settings-panel");
-  sp.hidden = !sp.hidden;
+  const tf = document.getElementById("typefilter-row");
+  const show = sp.hidden;
+  sp.hidden = !show;
+  tf.hidden = !show;
+  setTimeout(() => { if (Graph.cy) Graph.cy.resize(); }, 60);
 });
+
+/* 研究タイプ絞り込み */
+function currentTypeSet() {
+  const set = new Set();
+  document.querySelectorAll(".tf-chk").forEach(c => { if (c.checked) set.add(c.value); });
+  return set;
+}
+function typeFilterActive() {
+  return document.querySelectorAll(".tf-chk:not(:checked)").length > 0;
+}
+function applyTypeFilterFromUI() {
+  Graph.setTypeFilter(currentTypeSet());
+  updateLimitCap();
+}
+document.querySelectorAll(".tf-chk").forEach(c => c.addEventListener("change", applyTypeFilterFromUI));
+document.getElementById("tf-rct-only").addEventListener("click", () => {
+  document.querySelectorAll(".tf-chk").forEach(c => { c.checked = (c.value === "RCT"); });
+  applyTypeFilterFromUI();
+});
+document.getElementById("tf-all").addEventListener("click", () => {
+  document.querySelectorAll(".tf-chk").forEach(c => { c.checked = true; });
+  applyTypeFilterFromUI();
+});
+
+/* 表示件数の上限制御：200件以上はタイプを絞ったときのみ選択可 */
+function updateLimitCap() {
+  const active = typeFilterActive();
+  document.querySelectorAll("#limit-sel option").forEach(o => {
+    if (o.value === "200" || o.value === "300") o.disabled = !active;
+  });
+  // 絞り込み解除で200/300が選ばれていたら100に戻す
+  const sel = document.getElementById("limit-sel");
+  if (!active && (sel.value === "200" || sel.value === "300")) {
+    sel.value = "100";
+  }
+}
+updateLimitCap();
 document.getElementById("size-sel").addEventListener("change", e => Graph.setSizeMode(e.target.value));
 document.getElementById("btn-legend").addEventListener("click", () => Graph.setLegendVisible(!Graph.legendVisible));
 document.getElementById("legend-toggle").addEventListener("click", () => {
@@ -137,11 +184,14 @@ function showInputError(msg) {
 }
 function clearInputError() { document.getElementById("input-error").hidden = true; }
 function showInputInfo(msg) {
-  const el = document.getElementById("input-info");
-  el.textContent = msg;
-  el.hidden = false;
+  document.getElementById("input-info-text").textContent = msg;
+  document.getElementById("input-info").hidden = false;
 }
 function clearInputInfo() { document.getElementById("input-info").hidden = true; }
+document.getElementById("input-info-close").addEventListener("click", () => {
+  document.getElementById("input-info").hidden = true;
+  setTimeout(() => { if (Graph.cy) Graph.cy.resize(); }, 60);
+});
 
 function setLoading(text) {
   const box = document.getElementById("loading");

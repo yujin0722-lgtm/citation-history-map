@@ -81,7 +81,7 @@ const Graph = {
         { selector: "edge.hl", style: { "opacity": 1, "line-color": "#0E6E6E", "target-arrow-color": "#0E6E6E", "width": 2.4 } },
         { selector: "edge.hovhl", style: { "opacity": 1, "line-color": "#5E7280", "target-arrow-color": "#5E7280", "width": 2 } },
         { selector: "node.hit", style: { "border-width": 4, "border-color": "#E0A426" } },
-        { selector: "node.dirhidden, node.clustered", style: { "display": "none" } },
+        { selector: "node.dirhidden, node.clustered, node.typehidden", style: { "display": "none" } },
         { selector: "node[?isCluster]", style: {
           "shape": "round-rectangle", "background-color": "#E8EDF0",
           "border-style": "dashed", "border-color": "#8A97A0", "border-width": 1.5,
@@ -208,6 +208,7 @@ const Graph = {
     this.addPapersInternal(all, favIds);
     this.computeEdges();
     this.applyDirFilter();
+    this.applyTypeFilter();
     this.applyClustering();
     this.refreshColors();
     this.runLayout();
@@ -219,6 +220,7 @@ const Graph = {
     this.addPapersInternal(fresh, favIds);
     this.computeEdges();
     this.applyDirFilter();
+    this.applyTypeFilter();
     this.applyClustering();
     this.refreshColors();
     this.runLayout();
@@ -255,11 +257,32 @@ const Graph = {
 
   nodeCount() { return this.cy.nodes().length; },
 
+  /* ---------- 研究タイプ絞り込み ---------- */
+  typeFilter: new Set(["RCT", "META", "GUIDE", "OBS", "REVIEW", "CASE", "OTHER"]),
+  setTypeFilter(set) {
+    this.typeFilter = set;
+    this.applyDirFilter();
+    this.applyTypeFilter();
+    this.applyClustering();
+    this.refreshColors();
+    this.runLayout();
+  },
+  applyTypeFilter() {
+    this.cy.nodes().forEach(n => {
+      if (n.data("isCluster")) return;
+      // 起点論文は常に表示（タイプに関わらず中心に残す）
+      if (n.data("rel") === "root") { n.removeClass("typehidden"); return; }
+      const st = n.data("study") || "OTHER";
+      n.toggleClass("typehidden", !this.typeFilter.has(st));
+    });
+  },
+
   /* ---------- 表示対象（過去のみ／未来のみ／両方） ---------- */
   dirFilter: "both",
   setDirectionFilter(mode) {
     this.dirFilter = mode;
     this.applyDirFilter();
+    this.applyTypeFilter();
     this.applyClustering();
     this.refreshColors();
     this.runLayout();
@@ -310,7 +333,7 @@ const Graph = {
     if (!this.clusterEnabled) return;
     const groups = new Map();
     this.cy.nodes().forEach(n => {
-      if (n.data("isCluster") || n.hasClass("dirhidden")) return;
+      if (n.data("isCluster") || n.hasClass("dirhidden") || n.hasClass("typehidden")) return;
       const rel = n.data("rel");
       if (rel === "root" || rel === "both") return;
       if (this.favIds.has(n.id())) return;
@@ -545,7 +568,7 @@ const Graph = {
   rankPapers(crit, n) {
     const okIds = new Set(
       this.cy.nodes()
-        .filter(el => !el.hasClass("dirhidden") && !el.data("isCluster"))
+        .filter(el => !el.hasClass("dirhidden") && !el.hasClass("typehidden") && !el.data("isCluster"))
         .map(el => el.id())
     );
     const arr = [...this.papers.values()].filter(p => okIds.has(p.id));
