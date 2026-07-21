@@ -20,11 +20,12 @@ header{
 .brand{display:flex; align-items:center; gap:9px; text-decoration:none;}
 .brand-mark{display:none;}
 .brand-mark-img{flex:none; display:block; border-radius:8px;}
+.brand-text{display:flex; align-items:baseline; gap:9px;}
 .app-name{
   font-family:"Hiragino Mincho ProN","Yu Mincho",serif;
   font-size:22px; letter-spacing:.04em; font-weight:600; color:var(--ink);
 }
-.app-sub{color:var(--sub); font-size:12px; align-self:flex-end; padding-bottom:3px;}
+.app-sub{color:var(--sub); font-size:12px;}
 .head-btns{margin-left:auto; display:flex; gap:8px;}
 
 /* ---------- input area ---------- */
@@ -45,6 +46,7 @@ header{
   display:flex; align-items:flex-start; gap:10px;
 }
 #input-info-text{flex:1;}
+.input-info[hidden]{display:none;}
 #input-info-close{
   flex:none; border:none; background:none; color:var(--accent); cursor:pointer;
   font-size:13px; padding:0 2px; line-height:1.4;
