@@ -459,6 +459,7 @@ const Graph = {
   },
   renderLegend() {
     const legend = document.getElementById("legend");
+    const body = document.getElementById("legend-body");
     let rows = "";
     if (this.colorMode === "direction") {
       for (const k of ["root", "past", "future", "both", "expanded"]) {
@@ -491,7 +492,7 @@ const Graph = {
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><polygon points="1,3.5 9.5,3.5 13,7 9.5,10.5 1,10.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>症例報告</div>' +
       '<div class="lg-row"><svg class="shape" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>その他・未判定</div>';
     const colorName = { direction: "引用方向", era: "出版年代", importance: "重要度（被引用数）" }[this.colorMode];
-    legend.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
+    body.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
       "<h3>形：研究の種類（PubMed分類／なければタイトルから暫定）</h3>" + shapes +
       '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>点線の枠「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>線はノードに触れる・選択すると強調表示されます</div>';
     legend.hidden = !this.legendVisible;
@@ -610,7 +611,7 @@ const Graph = {
         ctx.font = "16px sans-serif";
         ctx.fillStyle = "#5B6B77";
         const today = new Date().toISOString().slice(0, 10);
-        ctx.fillText("Citation History Map ｜ 作成日 " + today + " ｜ データ: OpenAlex / PubMed", mL, mT - 16);
+        ctx.fillText("Citeline（引用の足跡）｜ 作成日 " + today + " ｜ データ: OpenAlex / PubMed", mL, mT - 16);
 
         ctx.drawImage(img, mL, mT);
 

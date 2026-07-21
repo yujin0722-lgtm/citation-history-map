@@ -8,8 +8,8 @@ let busy = false;
 
 /* ============ 起動 ============ */
 Graph.init({
-  onSelect: p => { renderPanel(p); document.getElementById("panel").classList.add("open"); },
-  onBackground: () => { renderEmptyPanel(); document.getElementById("panel").classList.remove("open"); }
+  onSelect: p => { renderPanel(p); openPanel(); },
+  onBackground: () => { renderEmptyPanel(); }
 });
 
 document.getElementById("btn-create").addEventListener("click", createNetwork);
@@ -41,6 +41,18 @@ document.getElementById("btn-settings").addEventListener("click", () => {
 });
 document.getElementById("size-sel").addEventListener("change", e => Graph.setSizeMode(e.target.value));
 document.getElementById("btn-legend").addEventListener("click", () => Graph.setLegendVisible(!Graph.legendVisible));
+document.getElementById("legend-toggle").addEventListener("click", () => {
+  const legend = document.getElementById("legend");
+  const collapsed = legend.classList.toggle("collapsed");
+  document.getElementById("legend-toggle").setAttribute("aria-expanded", String(!collapsed));
+  document.getElementById("legend-caret").textContent = collapsed ? "▸" : "▾";
+});
+// 画面が低いときは凡例を初期状態で畳んでおく（ボタンとの重なり回避）
+if (window.innerHeight < 720) {
+  document.getElementById("legend").classList.add("collapsed");
+  document.getElementById("legend-caret").textContent = "▸";
+  document.getElementById("legend-toggle").setAttribute("aria-expanded", "false");
+}
 document.getElementById("color-sel").addEventListener("change", e => {
   Graph.setColorMode(e.target.value);
   document.getElementById("imp-tool").hidden = (e.target.value !== "importance");
@@ -109,7 +121,7 @@ document.getElementById("btn-png").addEventListener("click", async () => {
   const uri = await Graph.exportPng();
   const a = document.createElement("a");
   a.href = uri;
-  a.download = "citation-history-map_" + (currentRoot ? (currentRoot.pmid || "network") : "network") + ".png";
+  a.download = "citeline_" + (currentRoot ? (currentRoot.pmid || "network") : "network") + ".png";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -193,9 +205,25 @@ async function createNetwork() {
 
 /* ============ 詳細パネル ============ */
 const panel = document.getElementById("panel");
+const panelContent = document.getElementById("panel-content");
+
+/* パネルの開閉（狭い画面でネットワーク領域を広げるため） */
+function openPanel() {
+  panel.classList.remove("collapsed");
+  panel.classList.add("open");
+  setTimeout(() => Graph.cy && Graph.cy.resize(), 60);
+}
+function collapsePanel() {
+  panel.classList.add("collapsed");
+  panel.classList.remove("open");
+  setTimeout(() => { if (Graph.cy) { Graph.cy.resize(); Graph.cy.fit(undefined, 40); } }, 60);
+}
+document.getElementById("panel-toggle").addEventListener("click", () => {
+  if (panel.classList.contains("collapsed")) openPanel(); else collapsePanel();
+});
 
 function renderEmptyPanel() {
-  panel.innerHTML = '<div class="empty">ノード（論文）を選択すると、ここに詳細が表示されます。<br><br>' +
+  panelContent.innerHTML = '<div class="empty">ノード（論文）を選択すると、ここに詳細が表示されます。<br><br>' +
     "・ノードの大きさ＝被引用数<br>・ノードの形＝研究の種類（暫定判定）<br>・矢印の先＝引用された論文</div>";
 }
 
@@ -212,7 +240,7 @@ function escapeHtml(s) {
 function renderPanel(p) {
   if (!p) return;
   const fav = favorites.has(p.id);
-  panel.innerHTML =
+  panelContent.innerHTML =
     '<div class="p-top">' +
       '<button class="fav-btn ' + (fav ? "on" : "") + '" id="p-fav" aria-label="お気に入りに登録">' + (fav ? "★" : "☆") + "</button>" +
       "<div>" +

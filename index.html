@@ -3,15 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Citation History Map</title>
+<title>Citeline ― 引用の足跡</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Crect width='72' height='72' rx='16' fill='%231C2B33'/%3E%3Cpath d='M50 22 A19 19 0 1 0 50 50' fill='none' stroke='%23ffffff' stroke-width='7' stroke-linecap='round'/%3E%3Cline x1='23' y1='36' x2='52' y2='36' stroke='%235E9C98' stroke-width='3'/%3E%3Ccircle cx='23' cy='36' r='8' fill='%2363E6DF'/%3E%3Ccircle cx='52' cy='36' r='4.5' fill='%239CCFCB'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 </head>
 <body>
 
 <header>
-  <div class="app-name">Citation History Map</div>
-  <div class="app-sub">引用の歴史をたどる、論文読解支援ツール</div>
+  <a class="brand" href="./" aria-label="Citeline ホーム">
+    <svg class="brand-mark" width="34" height="34" viewBox="0 0 72 72" aria-hidden="true">
+      <path d="M50 22 A19 19 0 1 0 50 50" fill="none" stroke="#1C2B33" stroke-width="7" stroke-linecap="round"/>
+      <line x1="23" y1="36" x2="52" y2="36" stroke="#8FC4C0" stroke-width="3"/>
+      <circle cx="23" cy="36" r="7.5" fill="#0E6E6E"/>
+      <circle cx="52" cy="36" r="4.5" fill="#63AFA9"/>
+    </svg>
+    <span class="app-name">Citeline</span>
+  </a>
+  <div class="app-sub">引用の足跡</div>
   <div class="head-btns">
     <button id="btn-help">使い方</button>
     <button id="btn-fav">★ お気に入り</button>
@@ -109,12 +118,18 @@
          ・矢印の先＝引用された論文／ノードの大きさ＝被引用数</p>
       <p class="small">初めての方は右上の「使い方」をご覧ください。準備は無料のAPIキー登録だけ（約5分）です。</p>
     </div>
-    <div id="legend" aria-live="polite" hidden></div>
+    <div id="legend" aria-live="polite" hidden>
+      <button id="legend-toggle" aria-expanded="true">凡例 <span id="legend-caret">▾</span></button>
+      <div id="legend-body"></div>
+    </div>
     <div id="ruler"></div>
   </div>
 
   <aside id="panel" aria-label="論文詳細">
-    <div class="empty">ノード（論文）を選択すると、ここに詳細が表示されます。</div>
+    <button id="panel-toggle" aria-label="論文情報パネルを閉じる" title="パネルを閉じる">›</button>
+    <div id="panel-content">
+      <div class="empty">ノード（論文）を選択すると、ここに詳細が表示されます。</div>
+    </div>
   </aside>
 
   <aside id="ranklist" aria-label="上位リスト">
@@ -147,7 +162,7 @@
 <footer>
   データ取得元：OpenAlex ｜ 引用データベースには収録漏れや誤りが含まれることがあり、本アプリのネットワークは完全な引用関係を保証しません。
   「重要度」は被引用数・接続数・出版年などを使った探索上の目安であり、研究の質やエビデンスの確実性を評価するものではありません。
-  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.17
+  本アプリは文献探索と教育の支援を目的とし、診療判断の代替ではありません。 ｜ v0.19
 </footer>
 
 
@@ -178,15 +193,20 @@
         <li>ログインした状態で
         <a href="https://openalex.org/settings/api" target="_blank" rel="noopener noreferrer">openalex.org/settings/api</a>
         を開きます。</li>
-        <li>画面に表示される長い英数字（これがAPIキーです）をコピーします。</li>
-        <li>このアプリに戻り、右上の「<strong>APIキー設定</strong>」を押して貼り付け、「保存する」を押します。</li>
+        <li>「Your API Key」欄の右にある「<strong>Copy</strong>」ボタンを押します。
+        キーの文字列は画面には表示されませんが、押すとクリップボードにコピーされます（これがあなたのAPIキーです）。</li>
+        <li>このアプリに戻り、右上の「<strong>APIキー設定</strong>」を押して、入力欄で貼り付け
+        （Windowsは Ctrl+V、Macは ⌘+V）て「保存する」を押します。</li>
       </ol>
       <p>これで準備完了です。キーは<strong>あなたのブラウザの中にだけ</strong>保存され、
       OpenAlex以外に送信されることはありません。
       無料の利用枠は毎日リセットされ、個人で使う分には上限に達することはまずありません。</p>
       <h4>うまくいかないとき</h4>
-      <p>「APIキーが設定されていないか、無効です」と表示されたら、キーの前後に余分な空白が入っていないか確認して、
-      もう一度貼り直してください。別のパソコンやブラウザで使うときは、そのブラウザでもう一度登録が必要です。</p>
+      <p>「APIキーが設定されていないか、無効です」と表示されたら、
+      もう一度OpenAlexの「Copy」を押してから、貼り付け直してください。
+      キーは画面に出ないので、コピーがうまくいったか不安なときは、
+      いったんメモ帳などに貼って長い英数字が入っているか確認すると確実です。
+      別のパソコンやブラウザで使うときは、そのブラウザでもう一度登録が必要です。</p>
     </section>
 
     <section class="help-sec" id="h2" hidden>
@@ -257,7 +277,8 @@
     <h2>OpenAlex APIキーの設定</h2>
     <p class="small">
       1. <a href="https://openalex.org" target="_blank" rel="noopener noreferrer">openalex.org</a> で無料アカウントを作成<br>
-      2. <a href="https://openalex.org/settings/api" target="_blank" rel="noopener noreferrer">openalex.org/settings/api</a> でAPIキーをコピー<br>
+      2. <a href="https://openalex.org/settings/api" target="_blank" rel="noopener noreferrer">openalex.org/settings/api</a> の「Copy」ボタンでキーをコピー<br>
+      　（キーの文字列は画面に表示されません。詳しくは「使い方」を参照）<br>
       3. 下の欄に貼り付けて保存<br><br>
       キーはこのブラウザ内にのみ保存され、OpenAlex以外へは送信されません。
       無料枠は毎日リセットされ、個人での利用には十分な量があります。
