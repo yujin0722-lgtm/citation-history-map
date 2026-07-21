@@ -446,6 +446,19 @@ document.getElementById("key-save").addEventListener("click", () => {
 document.getElementById("key-cancel").addEventListener("click", () => kbg.classList.remove("open"));
 kbg.addEventListener("click", e => { if (e.target === kbg) kbg.classList.remove("open"); });
 
+/* ============ ヘルプ ============ */
+const helpBg = document.getElementById("help-bg");
+document.getElementById("btn-help").addEventListener("click", () => helpBg.classList.add("open"));
+document.getElementById("help-close").addEventListener("click", () => helpBg.classList.remove("open"));
+helpBg.addEventListener("click", e => { if (e.target === helpBg) helpBg.classList.remove("open"); });
+document.querySelectorAll(".help-tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".help-tab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".help-sec").forEach(s => { s.hidden = (s.id !== btn.dataset.tab); });
+  });
+});
+
 /* ============ 起動時：URLパラメータからの自動作成 ============ */
 function applyUrlSettings(sp) {
   const map = [
