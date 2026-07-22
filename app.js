@@ -140,6 +140,14 @@ async function copyText(t) {
   try { await navigator.clipboard.writeText(t); return true; }
   catch (e) { return false; }
 }
+function openNetworkInNewTab(p) {
+  const u = shareUrlFor(p, false);
+  if (!u) {
+    openModal("ネットワークを開く", "この論文はDOI・PMIDが登録されていないため、ネットワークを作成できません。", null, "閉じる");
+    return;
+  }
+  window.open(u, "_blank", "noopener,noreferrer");
+}
 async function copyShare(p, withSettings) {
   const u = shareUrlFor(p, withSettings);
   if (!u) {
@@ -185,13 +193,28 @@ function showInputError(msg) {
   el.hidden = false;
 }
 function clearInputError() { document.getElementById("input-error").hidden = true; }
+let lastInfoMsg = "";
 function showInputInfo(msg) {
+  lastInfoMsg = msg;
   document.getElementById("input-info-text").textContent = msg;
   document.getElementById("input-info").hidden = false;
+  document.getElementById("btn-info-show").hidden = true;
 }
-function clearInputInfo() { document.getElementById("input-info").hidden = true; }
+function clearInputInfo() {
+  document.getElementById("input-info").hidden = true;
+  document.getElementById("btn-info-show").hidden = true;
+  lastInfoMsg = "";
+}
 document.getElementById("input-info-close").addEventListener("click", () => {
   document.getElementById("input-info").hidden = true;
+  document.getElementById("btn-info-show").hidden = !lastInfoMsg;
+  setTimeout(() => { if (Graph.cy) Graph.cy.resize(); }, 60);
+});
+document.getElementById("btn-info-show").addEventListener("click", () => {
+  if (!lastInfoMsg) return;
+  document.getElementById("input-info-text").textContent = lastInfoMsg;
+  document.getElementById("input-info").hidden = false;
+  document.getElementById("btn-info-show").hidden = true;
   setTimeout(() => { if (Graph.cy) Graph.cy.resize(); }, 60);
 });
 

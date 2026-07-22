@@ -201,10 +201,25 @@ dd{word-break:break-all;}
 .rank-num{
   display:inline-block; min-width:20px; font-weight:600; color:var(--accent);
 }
-.fav-item{border-bottom:1px solid var(--line); padding:9px 0; font-size:12.5px;}
-.fav-item a{color:var(--accent); cursor:pointer; text-decoration:underline;}
+.fav-item{border-bottom:1px solid var(--line); padding:7px 0; font-size:12.5px;}
+.fav-item a.jump{color:var(--accent); cursor:pointer; text-decoration:underline;}
 .fav-item .meta{color:var(--sub); font-size:11px; margin:2px 0 5px;}
-.fav-item button{font-size:11px; padding:2px 8px; margin-right:6px;}
+.fav-row{display:flex; align-items:center; gap:6px;}
+.fav-title{
+  flex:1; min-width:0; text-align:left; border:none; background:none; cursor:pointer;
+  color:var(--accent); font-size:12.5px; padding:3px 2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.fav-title:hover{text-decoration:underline;}
+.fav-row .pubmed,.fav-row .del{
+  flex:none; font-size:10.5px; padding:2px 6px; line-height:1.4;
+}
+.fav-menu{
+  display:flex; flex-direction:column; gap:4px; margin:5px 0 2px; padding:6px 8px;
+  background:var(--canvas); border-radius:6px;
+}
+.fav-menu[hidden]{display:none;}
+.fav-menu button{font-size:11.5px; text-align:left; padding:4px 8px;}
 
 /* ---------- modals ---------- */
 #modal-bg,#key-bg{

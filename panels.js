@@ -61,7 +61,7 @@ function renderPanel(p) {
         ? '<button id="p-pubmed">PubMedを開く</button>'
         : '<span class="note">PubMed登録なし</span>') +
       ((p.doi || p.pmid)
-        ? '<button id="p-share">この論文を起点にしたリンクをコピー</button>'
+        ? '<button id="p-share">この論文を起点にしたネットワークを新しいタブで開く</button>'
         : "") +
       '<button id="p-past">引用文献を展開</button>' +
       '<button id="p-future">被引用文献を展開</button>' +
@@ -77,7 +77,7 @@ function renderPanel(p) {
     window.open("https://pubmed.ncbi.nlm.nih.gov/" + p.pmid + "/", "_blank", "noopener,noreferrer");
   });
   const sh = document.getElementById("p-share");
-  if (sh) sh.addEventListener("click", () => copyShare(p));
+  if (sh) sh.addEventListener("click", () => openNetworkInNewTab(p));
   document.getElementById("p-past").addEventListener("click", () => expandNode(p, "past"));
   document.getElementById("p-future").addEventListener("click", () => expandNode(p, "future"));
 }
@@ -210,21 +210,37 @@ function renderFavList() {
     box.innerHTML = '<p class="note">まだ登録がありません。論文の詳細パネルで ☆ を押すと登録できます。</p>';
     return;
   }
-  box.innerHTML = [...favorites.values()].map(d =>
+  box.innerHTML = [...favorites.values()].map(d => {
+    const tip = escapeHtml(d.title) + "（" + (d.year != null ? d.year + "年" : "出版年不明") + "・" + escapeHtml(d.journal || "雑誌名情報なし") + "）";
+    return (
     '<div class="fav-item">' +
-      '<a data-id="' + d.id + '" class="jump">' + escapeHtml(d.title) + "</a>" +
-      '<div class="meta">' + (d.year != null ? d.year + "年" : "出版年不明") + "・" + escapeHtml(d.journal || "雑誌名情報なし") + "</div>" +
-      (d.pmid ? '<button data-pmid="' + d.pmid + '" class="pubmed">PubMed</button>' : "") +
-      '<button data-id="' + d.id + '" class="del">削除</button>' +
-    "</div>"
-  ).join("");
-  box.querySelectorAll(".jump").forEach(a => a.addEventListener("click", () => {
-    if (Graph.papers.has(a.dataset.id)) {
-      Graph.centerOn(a.dataset.id);
-      favDrawer.classList.remove("open");
-    } else {
-      openModal("お気に入り", "この論文は現在のネットワークには表示されていません。PubMedボタンから内容を確認できます。", null, "閉じる");
-    }
+      '<div class="fav-row">' +
+        '<button class="fav-title" data-id="' + d.id + '" title="' + tip + '">' + escapeHtml(d.title) + "</button>" +
+        (d.pmid ? '<button data-pmid="' + d.pmid + '" class="pubmed" title="PubMedを開く">PM</button>' : "") +
+        '<button data-id="' + d.id + '" class="del" title="削除">✕</button>' +
+      "</div>" +
+      '<div class="fav-menu" data-id="' + d.id + '" hidden>' +
+        '<button class="fav-menu-doi" data-id="' + d.id + '">DOIをコピー</button>' +
+        '<button class="fav-menu-open" data-id="' + d.id + '">新しいタブでネットワークを開く</button>' +
+      "</div>" +
+    "</div>");
+  }).join("");
+
+  box.querySelectorAll(".fav-title").forEach(btn => btn.addEventListener("click", () => {
+    const menu = box.querySelector('.fav-menu[data-id="' + btn.dataset.id + '"]');
+    const wasOpen = !menu.hidden;
+    box.querySelectorAll(".fav-menu").forEach(m => { m.hidden = true; });
+    menu.hidden = wasOpen;
+  }));
+  box.querySelectorAll(".fav-menu-doi").forEach(b => b.addEventListener("click", async () => {
+    const d = favorites.get(b.dataset.id);
+    if (!d || !d.doi) { openModal("DOIをコピー", "この論文にはDOIが登録されていません。", null, "閉じる"); return; }
+    const ok = await copyText(d.doi);
+    openModal("DOIをコピー", ok ? "DOIをコピーしました。\n\n" + d.doi : "コピーできませんでした。\n\n" + d.doi, null, "閉じる");
+  }));
+  box.querySelectorAll(".fav-menu-open").forEach(b => b.addEventListener("click", () => {
+    const d = favorites.get(b.dataset.id);
+    if (d) openNetworkInNewTab(d);
   }));
   box.querySelectorAll(".pubmed").forEach(b => b.addEventListener("click", () => {
     window.open("https://pubmed.ncbi.nlm.nih.gov/" + b.dataset.pmid + "/", "_blank", "noopener,noreferrer");
