@@ -173,6 +173,12 @@ async function fetchFuturePapers(workId, limit) {
   return { papers: papers, total: total };
 }
 
+/* エコーロケーション用：IDリストから論文を取得して返す（研究種別は暫定＝タイトル判定のまま） */
+async function echoFetchByIds(ids) {
+  if (!ids.length) return [];
+  return (await fetchWorksByIds(ids)).map(w => toPaper(w, "expanded"));
+}
+
 /* ============ PubMed Publication Type による研究種別の正式判定 ============
    PMIDを持つ論文について、PubMed公式の文献種別（Publication Type）を取得し、
    タイトルからの暫定判定を上書きする。取得失敗時は暫定判定のまま続行する。 */

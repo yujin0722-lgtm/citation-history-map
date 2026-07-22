@@ -186,6 +186,11 @@ dl{display:grid; grid-template-columns:64px 1fr; gap:4px 10px; font-size:13px;}
 dt{color:var(--sub);}
 dd{word-break:break-all;}
 .p-actions{display:flex; flex-direction:column; gap:7px; margin-top:4px;}
+.echo-btn{
+  background:var(--accent-soft); border-color:#BFDAD8; color:var(--accent);
+  font-weight:600; margin-top:3px;
+}
+.echo-btn:hover{background:#DCEBEA;}
 .note{font-size:11px; color:var(--sub); line-height:1.6;}
 .author-more{color:var(--accent); cursor:pointer; text-decoration:underline; font-size:12px;}
 
@@ -222,15 +227,24 @@ dd{word-break:break-all;}
 .fav-menu button{font-size:11.5px; text-align:left; padding:4px 8px;}
 
 /* ---------- modals ---------- */
-#modal-bg,#key-bg{
+#modal-bg,#key-bg,#echo-bg{
   position:fixed; inset:0; background:rgba(28,43,51,.45); display:none;
   align-items:center; justify-content:center; z-index:50; padding:16px;
 }
-#modal-bg.open,#key-bg.open{display:flex;}
+#modal-bg.open,#key-bg.open,#echo-bg.open{display:flex;}
 #modal{
   background:#fff; border-radius:12px; padding:22px; max-width:420px; width:100%;
   box-shadow:0 10px 30px rgba(0,0,0,.2);
 }
+#modal.echo-modal{max-width:480px; max-height:88vh; overflow-y:auto;}
+.echo-section{margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--line);}
+.echo-label{font-size:12.5px; font-weight:600; color:var(--ink); margin-bottom:6px;}
+.echo-radio{display:block; font-size:12.5px; color:var(--ink); padding:4px 0; cursor:pointer;}
+.echo-radio input{margin-right:7px;}
+.echo-types{display:flex; flex-wrap:wrap; gap:6px 14px;}
+.echo-note{font-size:11px; color:var(--sub); line-height:1.6; margin-top:6px;}
+.echo-row{display:flex; gap:24px; flex-wrap:wrap; border-bottom:1px solid var(--line);}
+.echo-inline{display:flex; flex-direction:column; gap:5px;}
 #modal h2{font-size:15px; margin-bottom:10px;}
 #modal p{font-size:13.5px; line-height:1.8; margin-bottom:12px; white-space:pre-line;}
 #modal p.small{font-size:12.5px;}

@@ -65,6 +65,7 @@ function renderPanel(p) {
         : "") +
       '<button id="p-past">引用文献を展開</button>' +
       '<button id="p-future">被引用文献を展開</button>' +
+      (p.echo ? "" : '<button id="p-echo" class="echo-btn">エコーロケーション（引用の引用を一気に表示）</button>') +
     "</div>";
 
   document.getElementById("p-fav").addEventListener("click", () => toggleFav(p));
@@ -80,6 +81,8 @@ function renderPanel(p) {
   if (sh) sh.addEventListener("click", () => openNetworkInNewTab(p));
   document.getElementById("p-past").addEventListener("click", () => expandNode(p, "past"));
   document.getElementById("p-future").addEventListener("click", () => expandNode(p, "future"));
+  const eb = document.getElementById("p-echo");
+  if (eb) eb.addEventListener("click", () => openEchoDialog(p));
 }
 
 /* ============ 展開 ============ */
@@ -253,3 +256,149 @@ function renderFavList() {
   }));
 }
 
+
+/* ============ エコーロケーション ============ */
+const ECHO_HOP1_CAP_REFS = 60;   // 2階層目を「引用」でたどる方向：1階層目の上限
+const ECHO_HOP1_CAP_CITE = 20;   // 2階層目を「被引用」でたどる方向：1階層目の上限（各々API1回のため小さめ）
+const ECHO_PERHOP_CITE = 40;     // 被引用方向で各1階層目論文から取る上限
+const ECHO_MAX_FETCH = 600;      // 2階層目候補の取得上限（API負荷の歯止め）
+let echoTarget = null;
+
+function openEchoDialog(p) {
+  echoTarget = p;
+  // 兄弟方向（過去→未来・未来→過去）のときだけ共通度を出す
+  syncEchoCommonVisibility();
+  document.getElementById("echo-bg").classList.add("open");
+}
+function syncEchoCommonVisibility() {
+  const dir = document.querySelector('input[name="echo-dir"]:checked').value;
+  const sibling = (dir === "pf" || dir === "fp");
+  document.getElementById("echo-common-wrap").hidden = !sibling;
+  document.getElementById("echo-common-note").hidden = !sibling;
+}
+document.querySelectorAll('input[name="echo-dir"]').forEach(r =>
+  r.addEventListener("change", syncEchoCommonVisibility));
+document.getElementById("echo-cancel").addEventListener("click", () =>
+  document.getElementById("echo-bg").classList.remove("open"));
+document.getElementById("echo-bg").addEventListener("click", e => {
+  if (e.target === document.getElementById("echo-bg")) e.currentTarget.classList.remove("open");
+});
+document.getElementById("echo-run").addEventListener("click", () => {
+  const dir = document.querySelector('input[name="echo-dir"]:checked').value;
+  const typeSet = new Set();
+  document.querySelectorAll(".echo-type").forEach(c => { if (c.checked) typeSet.add(c.value); });
+  const citesFloor = parseInt(document.getElementById("echo-cites").value, 10);
+  const commonFloor = (dir === "pf" || dir === "fp")
+    ? parseInt(document.getElementById("echo-common").value, 10) : 1;
+  document.getElementById("echo-bg").classList.remove("open");
+  if (!typeSet.size) {
+    openModal("エコーロケーション", "研究タイプが1つも選ばれていません。1つ以上選んでください。", null, "閉じる");
+    return;
+  }
+  runEcholocation(echoTarget, dir, typeSet, citesFloor, commonFloor);
+});
+
+async function runEcholocation(p, dir, typeSet, citesFloor, commonFloor) {
+  if (busy) return;
+  busy = true;
+  try {
+    const firstIsPast = (dir === "pp" || dir === "pf");   // 1階層目＝引用文献
+    const secondIsPast = (dir === "pp" || dir === "fp");  // 2階層目＝引用（refs）／それ以外は被引用（citers）
+
+    /* ---- 1階層目 ---- */
+    setLoading("エコーロケーション：1階層目を取得しています…");
+    let hop1 = [];
+    if (firstIsPast) {
+      const refs = p.referencedWorks || [];
+      if (!refs.length) { setLoading(null); busy = false;
+        openModal("エコーロケーション", "この論文には引用文献が登録されていないため、この方向はたどれません。", null, "閉じる"); return; }
+      const works = await echoFetchByIds(refs);
+      hop1 = works.sort((a, b) => (b.cites || 0) - (a.cites || 0)).slice(0, ECHO_HOP1_CAP_REFS);
+    } else {
+      const res = await fetchFuturePapers(p.id, ECHO_HOP1_CAP_CITE);
+      if (!res.papers.length) { setLoading(null); busy = false;
+        openModal("エコーロケーション", "この論文を引用した論文がまだ登録されていないため、この方向はたどれません。", null, "閉じる"); return; }
+      hop1 = res.papers;
+    }
+
+    /* ---- 2階層目（共通度カウント付き） ---- */
+    const tally = new Map();  // id -> {paper|null, count, id}
+    const bump = (id, paper) => {
+      const cur = tally.get(id) || { id: id, paper: null, count: 0 };
+      cur.count += 1;
+      if (paper && !cur.paper) cur.paper = paper;
+      tally.set(id, cur);
+    };
+
+    if (secondIsPast) {
+      // 各1階層目論文の referencedWorks を集計
+      for (const b of hop1) {
+        for (const rid of (b.referencedWorks || [])) {
+          if (rid === p.id) continue;
+          bump(rid, null);
+        }
+      }
+      setLoading("エコーロケーション：引用の引用を取得しています…");
+      // API負荷を抑えるため、多くの論文から共通して指されている候補を優先して上限内で取得
+      const ranked = [...tally.entries()].sort((a, b) => b[1].count - a[1].count);
+      const ids = ranked.slice(0, ECHO_MAX_FETCH).map(x => x[0]);
+      const works = await echoFetchByIds(ids);
+      const byId = new Map(works.map(w => [w.id, w]));
+      for (const [id, entry] of tally) { entry.paper = byId.get(id) || null; }
+    } else {
+      // 各1階層目論文の被引用（citers）を取得
+      let i = 0;
+      for (const b of hop1) {
+        i++;
+        setLoading("エコーロケーション：引用の引用を取得しています…（" + i + "/" + hop1.length + "）");
+        try {
+          const res = await fetchFuturePapers(b.id, ECHO_PERHOP_CITE);
+          for (const cp of res.papers) {
+            if (cp.id === p.id) continue;
+            bump(cp.id, cp);
+          }
+        } catch (e) { /* 個別失敗はスキップ */ }
+      }
+    }
+
+    /* ---- 絞り込み ---- */
+    const sibling = (dir === "pf" || dir === "fp");
+    let candidates = [...tally.values()].filter(e => e.paper);
+    candidates = candidates.filter(e =>
+      typeSet.has(e.paper.study || "OTHER") &&
+      (e.paper.cites || 0) >= citesFloor &&
+      (!sibling || e.count >= commonFloor)
+    );
+    // 既存ノード・起点は除外（新規のみ追加）
+    const fresh = candidates.filter(e => !Graph.papers.has(e.id) && e.id !== p.id);
+
+    setLoading(null);
+
+    if (!fresh.length) {
+      openModal("エコーロケーション",
+        "条件に合う「引用の引用」は見つかりませんでした。\n研究タイプを増やす、被引用数の下限を下げる" +
+        (sibling ? "、共通度の下限を下げる" : "") + "、などで再度お試しください。", null, "閉じる");
+      busy = false; return;
+    }
+
+    // 追加数の歯止め（既存の確認ダイアログ＆上限チェックを再利用）
+    const warn = capCheck(fresh.length);
+    if (warn === null) { busy = false; return; }
+    const dirName = { pp: "過去→過去", ff: "未来→未来", pf: "過去→未来", fp: "未来→過去" }[dir];
+    const msg = "方向：" + dirName + "\n条件に合う「引用の引用」が " + fresh.length + " 件見つかりました。\n" +
+      "これらを新しい層（外周リング付き）として追加します。\n続行しますか？" + warn;
+    openModal("エコーロケーション", msg, async () => {
+      const newOnes = fresh.map(e => { e.paper.echo = true; e.paper.rel = "expanded"; return e.paper; });
+      setLoading("PubMedから研究種別を取得しています…");
+      try { await enrichStudyTypes(newOnes); } catch (e) { /* 補助情報 */ }
+      setLoading(null);
+      Graph.addPapers(newOnes, new Set(favorites.keys()));
+    });
+  } catch (e) {
+    setLoading(null);
+    openModal("エラー", apiErrorMessage(e), null, "閉じる");
+  } finally {
+    setLoading(null);
+    busy = false;
+  }
+}

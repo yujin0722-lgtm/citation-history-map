@@ -81,6 +81,9 @@ const Graph = {
         { selector: "edge.hl", style: { "opacity": 1, "line-color": "#0E6E6E", "target-arrow-color": "#0E6E6E", "width": 2.4 } },
         { selector: "edge.hovhl", style: { "opacity": 1, "line-color": "#5E7280", "target-arrow-color": "#5E7280", "width": 2 } },
         { selector: "node.hit", style: { "border-width": 4, "border-color": "#E0A426" } },
+        { selector: "node[?echo]", style: {
+          "outline-width": 3, "outline-color": "#0E6E6E", "outline-opacity": 0.85, "outline-offset": 2
+        }},
         { selector: "node.dirhidden, node.clustered, node.typehidden", style: { "display": "none" } },
         { selector: "node[?isCluster]", style: {
           "shape": "round-rectangle", "background-color": "#E8EDF0",
@@ -234,7 +237,8 @@ const Graph = {
       this.papers.set(p.id, p);
       return { data: {
         id: p.id, label: this.labelFor(p, favs.has(p.id)),
-        rel: p.rel, study: p.study, cites: p.cites, year: p.year, title: p.title
+        rel: p.rel, study: p.study, cites: p.cites, year: p.year, title: p.title,
+        echo: p.echo ? true : undefined
       }};
     });
     this.cy.add(eles);
@@ -517,7 +521,7 @@ const Graph = {
     const colorName = { direction: "引用方向", era: "出版年代", importance: "重要度（被引用数）" }[this.colorMode];
     body.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
       "<h3>形：研究の種類（PubMed分類／なければタイトルから暫定）</h3>" + shapes +
-      '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>点線の枠「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>線はノードに触れる・選択すると強調表示されます</div>';
+      '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>点線の枠「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>外周のリング＝エコーロケーションで見つけた「引用の引用」の層<br>線はノードに触れる・選択すると強調表示されます</div>';
     legend.hidden = !this.legendVisible;
   },
 
