@@ -194,7 +194,7 @@ document.getElementById("btn-pf-send").addEventListener("click", () => {
     openModal("エラー", "パスファインダーへのデータの受け渡しに失敗しました。ブラウザの設定でLocal Storageが使えない可能性があります。", null, "閉じる");
     return;
   }
-  window.location.href = PATHFINDER_URL;
+  window.open(PATHFINDER_URL, "_blank", "noopener,noreferrer");
 });
 
 /* ============ お気に入り ============ */
