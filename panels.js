@@ -37,6 +37,7 @@ function escapeHtml(s) {
 function renderPanel(p) {
   if (!p) return;
   const fav = favorites.has(p.id);
+  const pf = pfSelection.has(p.id);
   panelContent.innerHTML =
     '<div class="p-top">' +
       '<button class="fav-btn ' + (fav ? "on" : "") + '" id="p-fav" aria-label="お気に入りに登録">' + (fav ? "★" : "☆") + "</button>" +
@@ -47,6 +48,7 @@ function renderPanel(p) {
         '<div class="p-title">' + escapeHtml(p.title) + "</div>" +
       "</div>" +
     "</div>" +
+    '<label class="pf-check"><input type="checkbox" id="p-pf-check"' + (pf ? " checked" : "") + '> 📌 パスファインダーへ送る</label>' +
     "<dl>" +
       "<dt>著者</dt><dd id='p-authors'>" + authorHtml(p.authors, "p-author-more") + "</dd>" +
       "<dt>出版年</dt><dd>" + (p.year != null ? p.year : "情報なし") + "</dd>" +
@@ -69,6 +71,7 @@ function renderPanel(p) {
     "</div>";
 
   document.getElementById("p-fav").addEventListener("click", () => toggleFav(p));
+  document.getElementById("p-pf-check").addEventListener("change", e => togglePf(p, e.target.checked));
   const more = document.getElementById("p-author-more");
   if (more) more.addEventListener("click", () => {
     document.getElementById("p-authors").textContent = p.authors.join("、");
@@ -156,10 +159,43 @@ function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes) {
     setLoading("PubMedから研究種別を取得しています…");
     try { await enrichStudyTypes(newOnes); } catch (e) { /* 分類は補助情報 */ }
     setLoading(null);
-    Graph.addPapers(newOnes, new Set(favorites.keys()));
+    Graph.addPapers(newOnes, new Set(favorites.keys()), new Set(pfSelection));
     if (dir === "past") p.loadedPast = true; else p.loadedFuture = true;
   });
 }
+
+/* ============ パスファインダーへ送る ============ */
+const PF_HANDOFF_KEY = "chm_to_pathfinder";
+const PATHFINDER_URL = "../pathfinder/"; // CitrailとパスファインダーはGitHub Pagesで兄弟フォルダとして公開される想定
+
+function togglePf(p, on) {
+  if (on) pfSelection.add(p.id); else pfSelection.delete(p.id);
+  Graph.updatePfMark(p.id, on);
+  updatePfSendButton();
+}
+
+function updatePfSendButton() {
+  const btn = document.getElementById("btn-pf-send");
+  if (!btn) return;
+  const n = pfSelection.size;
+  btn.textContent = "🧭 パスファインダーへ送る（" + n + "）";
+  btn.disabled = n === 0;
+}
+
+document.getElementById("btn-pf-send").addEventListener("click", () => {
+  if (!pfSelection.size) return;
+  const payload = [...pfSelection].map(id => Graph.papers.get(id)).filter(Boolean).map(p => ({
+    id: p.id, title: p.title, authors: p.authors, year: p.year, journal: p.journal,
+    doi: p.doi, pmid: p.pmid, study: p.study, studySource: p.studySource, referencedWorks: p.referencedWorks
+  }));
+  try {
+    localStorage.setItem(PF_HANDOFF_KEY, JSON.stringify(payload));
+  } catch (e) {
+    openModal("エラー", "パスファインダーへのデータの受け渡しに失敗しました。ブラウザの設定でLocal Storageが使えない可能性があります。", null, "閉じる");
+    return;
+  }
+  window.location.href = PATHFINDER_URL;
+});
 
 /* ============ お気に入り ============ */
 function toggleFav(p) {
@@ -392,7 +428,7 @@ async function runEcholocation(p, dir, typeSet, citesFloor, commonFloor) {
       setLoading("PubMedから研究種別を取得しています…");
       try { await enrichStudyTypes(newOnes); } catch (e) { /* 補助情報 */ }
       setLoading(null);
-      Graph.addPapers(newOnes, new Set(favorites.keys()));
+      Graph.addPapers(newOnes, new Set(favorites.keys()), new Set(pfSelection));
     });
   } catch (e) {
     setLoading(null);

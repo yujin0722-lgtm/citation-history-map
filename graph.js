@@ -188,10 +188,10 @@ const Graph = {
     return COLORS.direction[d.rel] || COLORS.direction.expanded;
   },
   shortTitle(t) { return t.length > 34 ? t.slice(0, 34) + "…" : t; },
-  labelFor(p, isFav) { return this.shortTitle(p.title) + (isFav ? " ★" : ""); },
+  labelFor(p, isFav, isPf) { return this.shortTitle(p.title) + (isFav ? " ★" : "") + (isPf ? " 📌" : ""); },
 
   /* ---------- ネットワーク構築 ---------- */
-  build(root, past, future, favIds) {
+  build(root, past, future, favIds, pfIds) {
     this.papers.clear();
     this.cy.elements().remove();
     this.rootId = root.id;
@@ -208,7 +208,7 @@ const Graph = {
         all.push(f);
       }
     }
-    this.addPapersInternal(all, favIds);
+    this.addPapersInternal(all, favIds, pfIds);
     this.computeEdges();
     this.applyDirFilter();
     this.applyTypeFilter();
@@ -218,9 +218,9 @@ const Graph = {
   },
 
   /* 追加（重複はスキップ）。戻り値: 追加された件数 */
-  addPapers(papers, favIds) {
+  addPapers(papers, favIds, pfIds) {
     const fresh = papers.filter(p => !this.papers.has(p.id));
-    this.addPapersInternal(fresh, favIds);
+    this.addPapersInternal(fresh, favIds, pfIds);
     this.computeEdges();
     this.applyDirFilter();
     this.applyTypeFilter();
@@ -230,13 +230,15 @@ const Graph = {
     return fresh.length;
   },
 
-  addPapersInternal(papers, favIds) {
+  addPapersInternal(papers, favIds, pfIds) {
     if (favIds) this.favIds = favIds;
-    const favs = favIds || new Set();
+    if (pfIds) this.pfIds = pfIds;
+    const favs = favIds || this.favIds || new Set();
+    const pfs = pfIds || this.pfIds || new Set();
     const eles = papers.map(p => {
       this.papers.set(p.id, p);
       return { data: {
-        id: p.id, label: this.labelFor(p, favs.has(p.id)),
+        id: p.id, label: this.labelFor(p, favs.has(p.id), pfs.has(p.id)),
         rel: p.rel, study: p.study, cites: p.cites, year: p.year, title: p.title,
         echo: p.echo ? true : undefined
       }};
@@ -320,6 +322,7 @@ const Graph = {
     this.runLayout();
   },
   favIds: new Set(),
+  pfIds: new Set(),   // パスファインダーへ送る対象として選択中のID(その場限り、保存はしない)
   _clusters: new Map(),   // clusterId -> {key, memberIds}
   setClusterEnabled(on) {
     this.clusterEnabled = on;
@@ -340,7 +343,7 @@ const Graph = {
       if (n.data("isCluster") || n.hasClass("dirhidden") || n.hasClass("typehidden")) return;
       const rel = n.data("rel");
       if (rel === "root" || rel === "both") return;
-      if (this.favIds.has(n.id())) return;
+      if (this.favIds.has(n.id()) || this.pfIds.has(n.id())) return;
       const key = (n.data("year") == null) ? "unknown" : n.data("year");
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(n);
@@ -612,7 +615,7 @@ const Graph = {
         if (!p) return;
         orig.set(n.id(), n.data("label"));
         const t = p.title.length > 60 ? p.title.slice(0, 60) + "…" : p.title;
-        n.data("label", t + (this.favIds.has(p.id) ? " ★" : ""));
+        n.data("label", t + (this.favIds.has(p.id) ? " ★" : "") + (this.pfIds.has(p.id) ? " 📌" : ""));
       });
       const bb = this.cy.elements().boundingBox();
       const scale = 2;
@@ -677,6 +680,15 @@ const Graph = {
     const n = this.cy.getElementById(id);
     if (!n.length) return;
     const p = this.papers.get(id);
-    n.data("label", this.labelFor(p, on));
+    n.data("label", this.labelFor(p, on, this.pfIds.has(id)));
+  },
+
+  /* ---------- パスファインダーへ送る選択の表示 ---------- */
+  updatePfMark(id, on) {
+    if (on) this.pfIds.add(id); else this.pfIds.delete(id);
+    const n = this.cy.getElementById(id);
+    if (!n.length) return;
+    const p = this.papers.get(id);
+    n.data("label", this.labelFor(p, this.favIds.has(id), on));
   }
 };
