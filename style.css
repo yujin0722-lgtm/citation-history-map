@@ -229,11 +229,11 @@ dd{word-break:break-all;}
 .fav-menu button{font-size:11.5px; text-align:left; padding:4px 8px;}
 
 /* ---------- modals ---------- */
-#modal-bg,#key-bg,#echo-bg{
+#modal-bg,#key-bg,#echo-bg,#pf-target-bg{
   position:fixed; inset:0; background:rgba(28,43,51,.45); display:none;
   align-items:center; justify-content:center; z-index:50; padding:16px;
 }
-#modal-bg.open,#key-bg.open,#echo-bg.open{display:flex;}
+#modal-bg.open,#key-bg.open,#echo-bg.open,#pf-target-bg.open{display:flex;}
 #modal{
   background:#fff; border-radius:12px; padding:22px; max-width:420px; width:100%;
   box-shadow:0 10px 30px rgba(0,0,0,.2);
