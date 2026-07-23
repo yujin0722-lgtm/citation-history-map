@@ -182,19 +182,44 @@ function updatePfSendButton() {
   btn.disabled = n === 0;
 }
 
-document.getElementById("btn-pf-send").addEventListener("click", () => {
-  if (!pfSelection.size) return;
-  const payload = [...pfSelection].map(id => Graph.papers.get(id)).filter(Boolean).map(p => ({
+/* パスファインダー側の地図一覧を読む(同一オリジンのLocal Storageを直接参照) */
+function loadPathfinderMapsIndex() {
+  try { return JSON.parse(localStorage.getItem("pf_maps_index") || "[]"); } catch (e) { return []; }
+}
+
+const pfTargetBg = document.getElementById("pf-target-bg");
+function openPfTargetModal() {
+  const sel = document.getElementById("pf-target-sel");
+  const maps = loadPathfinderMapsIndex().slice().sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+  sel.innerHTML = '<option value="__new__">＋ 新しい地図を作成する</option>' +
+    maps.map(m => '<option value="' + escapeHtml(m.id) + '">' + escapeHtml(m.title || "無題の地図") + "</option>").join("");
+  pfTargetBg.classList.add("open");
+}
+document.getElementById("pf-target-cancel").addEventListener("click", () => pfTargetBg.classList.remove("open"));
+pfTargetBg.addEventListener("click", e => { if (e.target === pfTargetBg) pfTargetBg.classList.remove("open"); });
+document.getElementById("pf-target-ok").addEventListener("click", () => {
+  pfTargetBg.classList.remove("open");
+  const targetMapId = document.getElementById("pf-target-sel").value;
+  sendToPathfinder(targetMapId === "__new__" ? null : targetMapId);
+});
+
+function sendToPathfinder(targetMapId) {
+  const papers = [...pfSelection].map(id => Graph.papers.get(id)).filter(Boolean).map(p => ({
     id: p.id, title: p.title, authors: p.authors, year: p.year, journal: p.journal,
     doi: p.doi, pmid: p.pmid, study: p.study, studySource: p.studySource, referencedWorks: p.referencedWorks
   }));
   try {
-    localStorage.setItem(PF_HANDOFF_KEY, JSON.stringify(payload));
+    localStorage.setItem(PF_HANDOFF_KEY, JSON.stringify({ targetMapId: targetMapId, papers: papers }));
   } catch (e) {
     openModal("エラー", "パスファインダーへのデータの受け渡しに失敗しました。ブラウザの設定でLocal Storageが使えない可能性があります。", null, "閉じる");
     return;
   }
   window.open(PATHFINDER_URL, "_blank", "noopener,noreferrer");
+}
+
+document.getElementById("btn-pf-send").addEventListener("click", () => {
+  if (!pfSelection.size) return;
+  openPfTargetModal();
 });
 
 /* ============ お気に入り ============ */
