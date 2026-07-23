@@ -4,6 +4,7 @@ const WARN_NODES = 100;
 const MAX_NODES = 300;
 
 let favorites = loadFavorites();
+let pfSelection = new Set(); // パスファインダーへ送る対象の選択(その場限り、保存はしない)
 let busy = false;
 
 /* ============ 起動 ============ */
@@ -255,7 +256,9 @@ async function createNetwork() {
     root.loadedFuture = true;
     document.getElementById("welcome").hidden = true;
     document.getElementById("toolbar").hidden = false;
-    Graph.build(root, past.papers, future.papers, new Set(favorites.keys()));
+    pfSelection.clear();
+    updatePfSendButton();
+    Graph.build(root, past.papers, future.papers, new Set(favorites.keys()), new Set(pfSelection));
     renderEmptyPanel();
     currentRoot = root;
     const su = shareUrlFor(root);
