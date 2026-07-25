@@ -206,7 +206,8 @@ document.getElementById("pf-target-ok").addEventListener("click", () => {
 function sendToPathfinder(targetMapId) {
   const papers = [...pfSelection].map(id => Graph.papers.get(id)).filter(Boolean).map(p => ({
     id: p.id, title: p.title, authors: p.authors, year: p.year, journal: p.journal,
-    doi: p.doi, pmid: p.pmid, study: p.study, studySource: p.studySource, referencedWorks: p.referencedWorks
+    doi: p.doi, pmid: p.pmid, study: p.study, studySource: p.studySource, referencedWorks: p.referencedWorks,
+    cites: p.cites
   }));
   try {
     localStorage.setItem(PF_HANDOFF_KEY, JSON.stringify({ targetMapId: targetMapId, papers: papers }));
