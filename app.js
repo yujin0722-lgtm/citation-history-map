@@ -5,11 +5,16 @@ const MAX_NODES = 300;
 
 let favorites = loadFavorites();
 let pfSelection = new Set(); // パスファインダーへ送る対象の選択(その場限り、保存はしない)
+let pfSelectMode = false; // パスファインダーへ送るノードを選ぶ専用モード中かどうか
 let busy = false;
 
 /* ============ 起動 ============ */
 Graph.init({
-  onSelect: p => { renderPanel(p); openPanel(); },
+  onSelect: p => {
+    if (pfSelectMode) togglePf(p, !pfSelection.has(p.id));
+    renderPanel(p);
+    openPanel();
+  },
   onBackground: () => { renderEmptyPanel(); }
 });
 
