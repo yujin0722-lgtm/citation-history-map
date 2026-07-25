@@ -176,11 +176,27 @@ function togglePf(p, on) {
 
 function updatePfSendButton() {
   const btn = document.getElementById("btn-pf-send");
-  if (!btn) return;
-  const n = pfSelection.size;
-  btn.textContent = "🧭 パスファインダーへ送る（" + n + "）";
-  btn.disabled = n === 0;
+  if (btn) {
+    const n = pfSelection.size;
+    btn.textContent = "🧭 パスファインダーへ送る（" + n + "）";
+    btn.disabled = n === 0;
+  }
+  const countEl = document.getElementById("pf-select-count");
+  if (countEl) countEl.textContent = pfSelection.size;
 }
+
+/* パスファインダーへ送るノードを選ぶ専用モード：ONの間はノードをタップすると
+   詳細パネルは開いたまま、同時にパスファインダー送信対象のON/OFFも切り替わる */
+function setPfSelectMode(on) {
+  pfSelectMode = on;
+  document.body.classList.toggle("pf-select-mode", on);
+  document.getElementById("btn-pf-select-mode").hidden = on;
+  document.getElementById("pf-select-status").hidden = !on;
+  document.getElementById("btn-pf-select-cancel").hidden = !on;
+  updatePfSendButton();
+}
+document.getElementById("btn-pf-select-mode").addEventListener("click", () => setPfSelectMode(true));
+document.getElementById("btn-pf-select-cancel").addEventListener("click", () => setPfSelectMode(false));
 
 /* パスファインダー側の地図一覧を読む(同一オリジンのLocal Storageを直接参照) */
 function loadPathfinderMapsIndex() {
@@ -201,6 +217,7 @@ document.getElementById("pf-target-ok").addEventListener("click", () => {
   pfTargetBg.classList.remove("open");
   const targetMapId = document.getElementById("pf-target-sel").value;
   sendToPathfinder(targetMapId === "__new__" ? null : targetMapId);
+  if (pfSelectMode) setPfSelectMode(false);
 });
 
 function sendToPathfinder(targetMapId) {

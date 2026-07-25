@@ -103,6 +103,16 @@ button.primary:hover{opacity:.9; color:#fff;}
 .main{flex:1; display:flex; min-height:0; position:relative;}
 #cy-wrap{flex:1; position:relative; min-width:0;}
 #cy{position:absolute; inset:0;}
+
+/* パスファインダーへ送るノードの選択モード：キャンバス全体にうっすら色を重ねて特殊モードを明示する */
+body.pf-select-mode #cy-wrap::before{
+  content:""; position:absolute; inset:0; z-index:3;
+  background:rgba(14,110,110,0.08); pointer-events:none;
+}
+.pf-select-status{
+  font-size:13px; color:var(--accent); background:var(--accent-soft);
+  border:1px solid #BFDAD8; border-radius:6px; padding:6px 12px; white-space:nowrap;
+}
 #cy-tip{
   position:absolute; display:none; max-width:340px;
   background:rgba(28,43,51,.92); color:#fff;

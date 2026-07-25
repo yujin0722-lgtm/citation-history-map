@@ -53,6 +53,9 @@
     <input type="text" id="search-in" placeholder="タイトルの一部" aria-label="表示中の論文タイトルを検索">
   </div>
   <button id="btn-rank">上位リスト</button>
+  <button id="btn-pf-select-mode" title="複数の論文をまとめてパスファインダーへ送る対象に選ぶモードに切り替えます">🧭 送るノードを選択</button>
+  <span id="pf-select-status" class="pf-select-status" hidden>選択モード中：<b id="pf-select-count">0</b>件選択済み</span>
+  <button id="btn-pf-select-cancel" hidden>選択モードを終了</button>
   <button id="btn-pf-send" title="パネルでチェックした論文を、パスファインダーへ渡します" disabled>🧭 パスファインダーへ送る（0）</button>
   <button id="btn-relayout">表示を整える</button>
   <button id="btn-share">リンクをコピー</button>
