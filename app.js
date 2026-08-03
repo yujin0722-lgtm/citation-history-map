@@ -254,7 +254,10 @@ async function createNetwork() {
     const future = await fetchFuturePapers(root.id, displayLimit());
 
     setLoading("PubMedから研究種別を取得しています…");
-    await enrichStudyTypes([root, ...past.papers, ...future.papers]);
+    const allPapers = [root, ...past.papers, ...future.papers];
+    await enrichStudyTypes(allPapers);
+    setLoading("Europe PMCから研究種別を補完しています…");
+    await enrichStudyTypesWithEuropePmc(allPapers);
 
     setLoading("ネットワーク図を作成しています…");
     root.loadedPast = true;
