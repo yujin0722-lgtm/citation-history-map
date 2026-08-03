@@ -44,7 +44,7 @@ function renderPanel(p) {
       "<div>" +
         '<span class="p-tag">' + (REL_LABEL[p.rel] || "") + "</span>" +
         '<span class="p-tag">' + (STUDY_LABEL[p.study] || "") +
-          (p.study === "OTHER" ? "" : (p.studySource === "pubmed" ? "（PubMed分類）" : "（暫定判定）")) + "</span>" +
+          (p.study === "OTHER" ? "" : ({ pubmed: "（PubMed分類）", europepmc: "（Europe PMC分類）" }[p.studySource] || "（暫定判定）")) + "</span>" +
         '<div class="p-title">' + escapeHtml(p.title) + "</div>" +
       "</div>" +
     "</div>" +
@@ -158,6 +158,8 @@ function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes) {
   openModal(dirLabel + "を展開", msg, async () => {
     setLoading("PubMedから研究種別を取得しています…");
     try { await enrichStudyTypes(newOnes); } catch (e) { /* 分類は補助情報 */ }
+    setLoading("Europe PMCから研究種別を補完しています…");
+    try { await enrichStudyTypesWithEuropePmc(newOnes); } catch (e) { /* 分類は補助情報 */ }
     setLoading(null);
     Graph.addPapers(newOnes, new Set(favorites.keys()), new Set(pfSelection));
     if (dir === "past") p.loadedPast = true; else p.loadedFuture = true;
@@ -470,6 +472,8 @@ async function runEcholocation(p, dir, typeSet, citesFloor, commonFloor) {
       const newOnes = fresh.map(e => { e.paper.echo = true; e.paper.rel = "expanded"; return e.paper; });
       setLoading("PubMedから研究種別を取得しています…");
       try { await enrichStudyTypes(newOnes); } catch (e) { /* 補助情報 */ }
+      setLoading("Europe PMCから研究種別を補完しています…");
+      try { await enrichStudyTypesWithEuropePmc(newOnes); } catch (e) { /* 補助情報 */ }
       setLoading(null);
       Graph.addPapers(newOnes, new Set(favorites.keys()), new Set(pfSelection));
     });

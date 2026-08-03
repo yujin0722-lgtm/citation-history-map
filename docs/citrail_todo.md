@@ -36,3 +36,35 @@ Playwrightで、選択モードへの切替・キャンバスの色重ね・件�
 ## 3. 次回セッションでやること
 
 - 特になし（現時点でのフィードバックはすべて実装済み）。次にYujinさんから新しいフィードバックが来たら対応する
+
+## 4. クラウド同期機能「sync」はCitrailには実装しない（2026-07-26、方針確定）
+
+Pathfinder側で、複数端末での地図データ同期機能「sync」(詳細はパスファインダー側の`pathfinder_prep.md`セクション37を参照)を検討・実装した際、Citrailへの適用も一度は候補に挙がったが、**Yujinさんの判断でCitrailには実装しないことに確定した**。
+
+理由：Citrailは論文ごとの引用ネットワークを展開して見る、という使い方が主目的であり、パスファインダーの地図のように腰を据えて編集作業を継続する場所ではないため、「地図を保存して複数端末で同期する」という概念自体がCitrailの用途に合わない、との判断。
+
+なお、この検討の過程で「Citrail自体には現状、引用ネットワークを保存する仕組みがない(お気に入りリストとAPIキー以外はLocal Storageに永続化されておらず、毎回DOI/PMIDから作り直す一時的なもの)」ことが判明した。今後もし気が変わって同期や保存機能を検討する場合は、まずこの「地図保存」の仕組み自体を新設する必要がある点に留意。
+
+## 5. 研究種別の自動分類精度の改善：Europe PMCを補助的な判定源として追加（2026-07-27 セッション、実装完了）
+
+Yujinさんから、「レビュー論文やガイドラインが誤分類されたり分類不能になることが少なくない。他の論文検索APIを組み合わせて精度を上げたい」との相談があった。
+
+**原因の分析**：現状の分類は2段階(`api.js`)。①タイトルの正規表現による暫定判定(`classifyStudy()`)、②PMIDがある論文についてPubMed(NCBI E-utilities `esummary`)のPublication Typeで上書き(`enrichStudyTypes()`)。誤分類・分類不能の根本原因は、コードの不具合ではなく**PubMed自体のインデックス付けの粗さ**：実際の臨床ガイドラインでも、PubMed上のPublication Typeが「Journal Article」としかタグ付けされていないケースが少なくなく、その場合は上書きが起きず暫定判定のまま残る。またDOIのみでPMIDがない論文は、そもそもPubMed照会の対象外だった。
+
+**採用した方式**：Europe PMC(`https://www.ebi.ac.uk/europepmc/webservices/rest/search`)を3段目の補助判定として追加した。Europe PMCを選んだ理由：
+- PubMed本体より文献種別のタグ付け(`pubTypeList`)が充実している傾向がある
+- **DOIのみでも直接検索できる**ため、PMIDがない論文もカバーできる
+- APIキー不要・無料で、既存の「サーバー・アカウントなし」という方針を維持できる
+
+**判定順序(カスケード方式)**：①タイトル判定 → ②PubMed(PMIDがあれば) → ③**新規**：ここまでで`OTHER`のまま、またはPMIDがなかった論文だけを対象に、Europe PMCに問い合わせて`pubTypeList`があれば上書き。既にPubMedで確定した論文は対象にせず、追加のAPI呼び出しを最小限に抑える設計にした。
+
+**実装内容**（`api.js`）：
+- `classifyFromEuropePmcTypes()`：Europe PMCの`pubTypeList.pubType`から研究種別を判定(既存の`classifyFromPubTypes()`とほぼ同じロジック)
+- `fetchEuropePmcTypesBatch()`：対象論文をまとめてEurope PMCに問い合わせる。PMIDがある論文は`EXT_ID:{pmid} AND SRC:MED`、DOIのみの論文は`DOI:"{doi}"`をOR結合したクエリを1回のリクエストにまとめ(15件ごとに分割)、応答に含まれる`pmid`/`doi`で元の論文に逆引きして反映する(PubMedの`fetchPubTypes()`と同様のバッチ方式)
+- `enrichStudyTypesWithEuropePmc(papers)`：対象を「`study==='OTHER'`のまま」または「PMIDがない」論文に絞り込んでから`fetchEuropePmcTypesBatch()`を呼ぶ
+- `app.js`・`panels.js`の3箇所(初回のネットワーク作成・引用/被引用の追加展開・エコーロケーション)で、既存の`enrichStudyTypes()`呼び出しの直後に`enrichStudyTypesWithEuropePmc()`を追加。ローディング表示にも「Europe PMCから研究種別を補完しています…」の文言を追加
+- `panels.js`の詳細パネルで、研究種別の由来ラベルに「（Europe PMC分類）」を追加(既存の「（PubMed分類）」「（暫定判定）」と並ぶ3種類目)
+
+**注意点(Yujinさんへの共有事項)**：開発環境(サンドボックス)からは`www.ebi.ac.uk`への実際のAPI通信がネットワーク制限でブロックされているため、Europe PMCへの実際の通信結果そのものは検証できていない。Playwrightでダミーの応答(実際のEurope PMC APIの応答形式を模したもの)を使い、①PMIDがあるがPubMedで分類できなかった論文がガイドラインとして正しく分類されるか、②DOIのみの論文がレビューとして正しく分類されるか、③既にPubMedで確定した論文はEurope PMCへの無駄な問い合わせをしないか、の3点をテストして確認した。**実際のEurope PMC APIのレスポンス形式(フィールド名など)が想定と違っていないかは、Yujinさんが実際にCitrailを使って動作確認する際に注視してほしい**(公式ドキュメントに基づいて実装したが、実データでの最終確認はできていない)。
+
+既存の回帰テスト(Citrailからパスファインダーへの送信・被引用数の受け渡し・新しいタブでの起動・送り先地図の指定・選択モード)もすべて通過することを確認済み。

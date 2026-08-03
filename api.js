@@ -228,6 +228,84 @@ async function enrichStudyTypes(papers) {
   }
 }
 
+/* ============ Europe PMC による研究種別の補助判定（PubMedで確定しなかった論文向け） ============
+   PubMedのPublication Typeは、実際のガイドライン等でも「Journal Article」としかタグ付けされて
+   いないことが少なくなく、その場合は分類できずタイトル判定のまま残ってしまう。Europe PMCは
+   PubMed本体より文献種別のタグ付けが充実している傾向があり、かつDOIのみの論文（PMIDがない）も
+   検索できるため、PubMedで解決しなかった論文だけを対象にした補助的な2段目の判定として追加する。
+   失敗しても既存の判定（タイトル or PubMed）を維持し、処理は止めない。 */
+
+const EUROPEPMC_BASE = "https://www.ebi.ac.uk/europepmc/webservices/rest/search";
+
+function classifyFromEuropePmcTypes(types) {
+  const t = types.map(x => String(x).toLowerCase());
+  const has = s => t.some(x => x.includes(s));
+  if (has("meta-analysis") || has("systematic review")) return "META";
+  if (has("randomized controlled trial")) return "RCT";
+  if (has("guideline")) return "GUIDE";
+  if (has("observational study")) return "OBS";
+  if (has("case reports") || has("case report")) return "CASE";
+  if (has("review")) return "REVIEW";
+  return null;
+}
+
+/* Europe PMCの検索クエリ言語で1件分の識別子条件を組み立てる。PMIDがあればPMID指定（PubMed収録分に限定）、
+   なければDOI指定にする（DOIのみの論文もカバーするため） */
+function europePmcQueryTerm(p) {
+  if (p.pmid) return "EXT_ID:" + p.pmid + " AND SRC:MED";
+  if (p.doi) return "DOI:\"" + p.doi + "\"";
+  return null;
+}
+
+async function fetchEuropePmcTypesBatch(papers) {
+  const byPmid = new Map(), byDoi = new Map(), terms = [];
+  for (const p of papers) {
+    const term = europePmcQueryTerm(p);
+    if (!term) continue;
+    terms.push(term);
+    if (p.pmid) byPmid.set(String(p.pmid), p);
+    else if (p.doi) byDoi.set(String(p.doi).toLowerCase(), p);
+  }
+  if (!terms.length) return;
+
+  const CHUNK = 15; // クエリ文字列が長くなりすぎないよう小分けにする
+  for (let i = 0; i < terms.length; i += CHUNK) {
+    const chunk = terms.slice(i, i + CHUNK);
+    const url = new URL(EUROPEPMC_BASE);
+    url.searchParams.set("query", chunk.join(" OR "));
+    url.searchParams.set("format", "json");
+    url.searchParams.set("resultType", "core");
+    url.searchParams.set("pageSize", "100");
+    let data;
+    try {
+      const res = await fetch(url.toString());
+      if (!res.ok) continue;
+      data = await res.json();
+    } catch (e) { continue; /* 補助情報なので、この分だけ諦めて続行する */ }
+
+    const results = (data.resultList && data.resultList.result) || [];
+    for (const rec of results) {
+      const listField = rec.pubTypeList && rec.pubTypeList.pubType;
+      if (!listField) continue;
+      const arr = Array.isArray(listField) ? listField : [listField];
+      const cat = classifyFromEuropePmcTypes(arr);
+      if (!cat) continue;
+      let p = null;
+      if (rec.pmid && byPmid.has(String(rec.pmid))) p = byPmid.get(String(rec.pmid));
+      else if (rec.doi && byDoi.has(String(rec.doi).toLowerCase())) p = byDoi.get(String(rec.doi).toLowerCase());
+      if (p) { p.study = cat; p.studySource = "europepmc"; }
+    }
+  }
+}
+
+async function enrichStudyTypesWithEuropePmc(papers) {
+  // 対象は「PubMedで確定しなかった(依然としてOTHERのまま)論文」または「PMIDがなくPubMedの判定自体を
+  // 受けられなかった論文」のみ。既にPubMedで確定した論文は対象にせず、追加のAPI呼び出しを最小限にする
+  const targets = papers.filter(p => p && (p.study === "OTHER" || !p.pmid) && (p.pmid || p.doi));
+  if (!targets.length) return;
+  try { await fetchEuropePmcTypesBatch(targets); } catch (e) { /* 補助情報なので失敗しても継続 */ }
+}
+
 /* ============ エラーメッセージ ============ */
 function apiErrorMessage(e) {
   switch (e && e.code) {
