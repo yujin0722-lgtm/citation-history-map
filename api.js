@@ -120,7 +120,18 @@ async function fetchRootWork(norm) {
   return toPaper(w, "root");
 }
 
-/* OpenAlex IDのリストから書誌情報をまとめて取得（50件ずつのOR構文） */
+/* IDを1件指定してOpenAlexの書誌情報を取得する。統合(merge)されて別IDにリダイレクトされた
+   レコードでも、個別取得なら現在の正しいレコードに解決される(一括のfilter検索では拾えないことがある) */
+async function fetchWorkById(id) {
+  try { return await apiGet("/works/" + id, { select: SELECT_FIELDS }); }
+  catch (e) { return null; }
+}
+
+const MERGED_ID_FALLBACK_MAX = 50; // 個別フォールバックの上限件数(取りこぼしが極端に多い場合の通信量抑制)
+
+/* OpenAlex IDのリストから書誌情報をまとめて取得（50件ずつのOR構文）。一括取得のfilter構文では、
+   統合(merge)されて別IDにリダイレクトされたレコードが見つからないことがあるため、
+   一括取得で見つからなかったIDだけ個別取得(fetchWorkById)でフォールバックする */
 let ID_FILTER_KEY = "ids.openalex";
 async function fetchWorksByIds(ids) {
   const out = [];
@@ -145,6 +156,13 @@ async function fetchWorksByIds(ids) {
       } else { throw e; }
     }
     out.push(...(data.results || []));
+  }
+
+  const foundIds = new Set(out.map(w => shortOAId(w.id)));
+  const missingIds = ids.filter(id => !foundIds.has(id)).slice(0, MERGED_ID_FALLBACK_MAX);
+  if (missingIds.length) {
+    const recovered = (await Promise.all(missingIds.map(fetchWorkById))).filter(Boolean);
+    out.push(...recovered);
   }
   return out;
 }
