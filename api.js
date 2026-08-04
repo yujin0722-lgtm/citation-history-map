@@ -322,12 +322,15 @@ async function europePmcIdentity(paper) {
   } catch (e) { return null; }
 }
 
-/* 指定した論文の引用文献(kind="references")または被引用文献(kind="citations")のDOI一覧をEurope PMCから取得する */
-async function fetchEuropePmcLinkedDois(paper, kind) {
+/* 指定した論文の引用文献(kind="references")または被引用文献(kind="citations")の識別子一覧をEurope PMCから取得する。
+   resultType=coreを指定しないとdoi等の識別子フィールドが応答に含まれないため必須。
+   各項目はdoi/pmidのどちらか一方、両方、またはどちらも無い場合がある */
+async function fetchEuropePmcLinkedRefs(paper, kind) {
   const identity = await europePmcIdentity(paper);
   if (!identity) return [];
   const url = new URL(EUROPEPMC_REST_BASE + "/" + identity.source + "/" + identity.id + "/" + kind);
   url.searchParams.set("format", "json");
+  url.searchParams.set("resultType", "core");
   url.searchParams.set("pageSize", "1000");
   try {
     const res = await fetch(url.toString());
@@ -336,7 +339,7 @@ async function fetchEuropePmcLinkedDois(paper, kind) {
     const listKey = kind === "references" ? "referenceList" : "citationList";
     const itemKey = kind === "references" ? "reference" : "citation";
     const items = (data[listKey] && data[listKey][itemKey]) || [];
-    return items.map(it => it.doi).filter(Boolean);
+    return items.map(it => ({ doi: it.doi || null, pmid: it.pmid || null })).filter(x => x.doi || x.pmid);
   } catch (e) { return []; }
 }
 
@@ -357,16 +360,38 @@ async function fetchWorksByDois(dois) {
   return out;
 }
 
-/* 既存の候補一覧(OpenAlex由来、DOIで重複判定)にない、Europe PMCで見つかった論文を追加取得する */
+/* PMIDからOpenAlexの書誌情報を1件取得する(起点論文の取得(fetchRootWork)と同じ個別取得の仕組みを再利用。
+   バッチ用のfilter構文がPMIDに対しても確実に使えるか未確認のため、確実に動く個別取得を選んだ) */
+async function fetchWorkByPmid(pmid) {
+  try { return await apiGet("/works/pmid:" + pmid, { select: SELECT_FIELDS }); }
+  catch (e) { return null; }
+}
+
+const EUROPEPMC_PMID_FALLBACK_MAX = 40; // DOIで解決できなかった項目をPMIDで個別取得する際の上限件数
+
+/* 既存の候補一覧(OpenAlex由来、doi/pmidで重複判定)にない、Europe PMCで見つかった論文を追加取得する。
+   まずDOIでまとめて解決し、DOIが無い/DOIでは見つからなかった項目はPMIDで個別に解決を試みる */
 async function supplementWithEuropePmc(paper, kind, existingPapers, rel) {
   try {
-    const dois = await fetchEuropePmcLinkedDois(paper, kind);
-    if (!dois.length) return [];
-    const known = new Set(existingPapers.map(p => p.doi && p.doi.toLowerCase()).filter(Boolean));
-    const missing = [...new Set(dois.filter(d => d && !known.has(d.toLowerCase())))];
-    if (!missing.length) return [];
-    const works = await fetchWorksByDois(missing);
-    return works.map(w => { const p = toPaper(w, rel); p.citationSource = "europepmc"; return p; });
+    const links = await fetchEuropePmcLinkedRefs(paper, kind);
+    if (!links.length) return [];
+    const knownDois = new Set(existingPapers.map(p => p.doi && p.doi.toLowerCase()).filter(Boolean));
+    const knownPmids = new Set(existingPapers.map(p => p.pmid).filter(Boolean));
+
+    const missingDois = [...new Set(links.filter(l => l.doi && !knownDois.has(l.doi.toLowerCase())).map(l => l.doi))];
+    const worksFromDoi = missingDois.length ? await fetchWorksByDois(missingDois) : [];
+    const resolvedDois = new Set(worksFromDoi.map(w => stripDoi(w.doi)).filter(Boolean).map(d => d.toLowerCase()));
+
+    const missingPmids = [...new Set(
+      links
+        .filter(l => l.pmid && !knownPmids.has(l.pmid) && (!l.doi || !resolvedDois.has(l.doi.toLowerCase())))
+        .map(l => l.pmid)
+    )].slice(0, EUROPEPMC_PMID_FALLBACK_MAX);
+    const worksFromPmid = missingPmids.length
+      ? (await Promise.all(missingPmids.map(fetchWorkByPmid))).filter(Boolean)
+      : [];
+
+    return worksFromDoi.concat(worksFromPmid).map(w => { const p = toPaper(w, rel); p.citationSource = "europepmc"; return p; });
   } catch (e) { return []; }
 }
 
