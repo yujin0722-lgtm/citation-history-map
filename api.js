@@ -426,7 +426,7 @@ async function fetchPastPapersSupplemented(paper, limit) {
     : [];
   const supplement = await supplementWithEuropePmc(paper, "references", fromOpenAlex, "past");
   const merged = fromOpenAlex.concat(supplement).sort((a, b) => (b.cites || 0) - (a.cites || 0));
-  return { papers: merged.slice(0, limit), total: merged.length };
+  return { papers: merged.slice(0, limit), total: merged.length, all: merged };
 }
 
 /* 未来文献(被引用文献)：OpenAlexのcites:フィルタに、Europe PMCで見つかった不足分を足して返す */
@@ -443,7 +443,7 @@ async function fetchFuturePapersSupplemented(paper, limit) {
   } catch (e) { /* OpenAlex側が失敗しても、Europe PMC側だけでの続行を試みる */ }
   const supplement = await supplementWithEuropePmc(paper, "citations", fromOpenAlex, "future");
   const merged = fromOpenAlex.concat(supplement).sort((a, b) => (b.cites || 0) - (a.cites || 0));
-  return { papers: merged.slice(0, limit), total: merged.length };
+  return { papers: merged.slice(0, limit), total: merged.length, all: merged };
 }
 
 /* ============ エラーメッセージ ============ */

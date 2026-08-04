@@ -85,13 +85,13 @@ const Graph = {
           "outline-width": 3, "outline-color": "#0E6E6E", "outline-opacity": 0.85, "outline-offset": 2
         }},
         { selector: "node.dirhidden, node.clustered, node.typehidden", style: { "display": "none" } },
-        { selector: "node[?isCluster]", style: {
+        { selector: "node[?isCluster], node[?isOverflow]", style: {
           "shape": "round-rectangle", "background-color": "#E8EDF0",
           "border-style": "dashed", "border-color": "#8A97A0", "border-width": 1.5,
           "width": 66, "height": 30, "text-valign": "center", "text-margin-y": 0,
           "font-size": "10px", "text-background-opacity": 0, "text-opacity": 1
         }},
-        { selector: "node.nolabel[?isCluster]", style: { "text-opacity": 1 } }
+        { selector: "node.nolabel[?isCluster], node.nolabel[?isOverflow]", style: { "text-opacity": 1 } }
       ],
       wheelSensitivity: 0.25
     });
@@ -99,6 +99,10 @@ const Graph = {
     this.cy.on("tap", "node", evt => {
       const n = evt.target;
       if (n.data("isCluster")) { this.expandClusterByNode(n); return; }
+      if (n.data("isOverflow")) {
+        if (this.callbacks.onOverflowTap) this.callbacks.onOverflowTap(n.data("overflowFor"), n.data("overflowDir"));
+        return;
+      }
       this.highlightNeighborhood(n);
       if (this.callbacks.onSelect) this.callbacks.onSelect(this.papers.get(n.id()));
     });
@@ -118,6 +122,12 @@ const Graph = {
         const info = this._clusters.get(n.id());
         const y = (info && info.key !== "unknown") ? info.key + "年の" : "";
         tip.textContent = y + "下位論文" + (info ? info.memberIds.length : "") + "件を畳んでいます（タップで展開）";
+        tip.style.display = "block";
+        return;
+      }
+      if (n.data("isOverflow")) {
+        const dirLabel = (n.data("overflowDir") === "past") ? "引用文献" : "被引用文献";
+        tip.textContent = "表示件数の上限のため保留中の" + dirLabel + "（タップで表示）";
         tip.style.display = "block";
         return;
       }
@@ -275,7 +285,7 @@ const Graph = {
   },
   applyTypeFilter() {
     this.cy.nodes().forEach(n => {
-      if (n.data("isCluster")) return;
+      if (n.data("isCluster") || n.data("isOverflow")) return;
       // 起点論文は常に表示（タイプに関わらず中心に残す）
       if (n.data("rel") === "root") { n.removeClass("typehidden"); return; }
       const st = n.data("study") || "OTHER";
@@ -340,7 +350,7 @@ const Graph = {
     if (!this.clusterEnabled) return;
     const groups = new Map();
     this.cy.nodes().forEach(n => {
-      if (n.data("isCluster") || n.hasClass("dirhidden") || n.hasClass("typehidden")) return;
+      if (n.data("isCluster") || n.data("isOverflow") || n.hasClass("dirhidden") || n.hasClass("typehidden")) return;
       const rel = n.data("rel");
       if (rel === "root" || rel === "both") return;
       if (this.favIds.has(n.id()) || this.pfIds.has(n.id())) return;
@@ -369,6 +379,46 @@ const Graph = {
     info.memberIds.forEach(id => this.cy.getElementById(id).removeClass("clustered"));
     this._clusters.delete(n.id());
     n.remove();
+    this.refreshColors();
+    this.runLayout();
+  },
+
+  /* ---------- 表示件数の上限で保留された論文（「ほか○件」の追加表示） ----------
+     年クラスタと違い、グラフ上にまだ存在しない(取得すらされていない)論文をタップで
+     追加取得する。対象論文(paper)に _pastOverflow / _futureOverflow として保留分の
+     論文配列を持たせておき、applyOverflowClustersでその件数分のノードを表示する。 */
+  applyOverflowClusters() {
+    this.cy.nodes("[?isOverflow]").remove();
+    const newNodes = [], newEdges = [];
+    for (const p of this.papers.values()) {
+      if (p._pastOverflow && p._pastOverflow.length) {
+        const oid = "ovf_past_" + p.id;
+        newNodes.push({ data: {
+          id: oid, isOverflow: 1, overflowFor: p.id, overflowDir: "past",
+          label: "ほか" + p._pastOverflow.length + "件", year: p.year, rel: "cluster", cites: 0, title: ""
+        }});
+        newEdges.push({ data: { id: oid + "_e", source: p.id, target: oid } });
+      }
+      if (p._futureOverflow && p._futureOverflow.length) {
+        const oid = "ovf_future_" + p.id;
+        newNodes.push({ data: {
+          id: oid, isOverflow: 1, overflowFor: p.id, overflowDir: "future",
+          label: "ほか" + p._futureOverflow.length + "件", year: p.year, rel: "cluster", cites: 0, title: ""
+        }});
+        newEdges.push({ data: { id: oid + "_e", source: oid, target: p.id } });
+      }
+    }
+    if (newNodes.length) this.cy.add(newNodes);
+    if (newEdges.length) this.cy.add(newEdges);
+  },
+  /* paperIdの論文について、表示件数の上限のため保留されている論文一覧を設定/更新する。
+     pastRemaining/futureRemainingは未指定(undefined)ならそのまま変更しない */
+  setOverflow(paperId, pastRemaining, futureRemaining) {
+    const p = this.papers.get(paperId);
+    if (!p) return;
+    if (pastRemaining !== undefined) p._pastOverflow = pastRemaining;
+    if (futureRemaining !== undefined) p._futureOverflow = futureRemaining;
+    this.applyOverflowClusters();
     this.refreshColors();
     this.runLayout();
   },
