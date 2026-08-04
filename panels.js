@@ -119,7 +119,7 @@ async function expandNode(p, dir) {
     const papers = res.papers.map(x => { x.rel = rel; return x; });
     const newOnes = papers.filter(x => !Graph.papers.has(x.id));
     const dup = papers.length - newOnes.length;
-    confirmAndAdd(p, dir, res.total, papers.length, dup, newOnes);
+    confirmAndAdd(p, dir, res.total, papers.length, dup, newOnes, res.all);
   } catch (e) {
     setLoading(null);
     openModal("エラー", apiErrorMessage(e), null, "閉じる");
@@ -129,10 +129,16 @@ async function expandNode(p, dir) {
   }
 }
 
-function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes) {
+function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes, allCandidates) {
   const dirLabel = (dir === "past") ? "引用文献" : "被引用文献";
+  const updateOverflow = () => {
+    const remaining = (allCandidates || []).filter(x => !Graph.papers.has(x.id));
+    if (dir === "past") Graph.setOverflow(p.id, remaining, undefined);
+    else Graph.setOverflow(p.id, undefined, remaining);
+  };
   if (!newOnes.length) {
     openModal(dirLabel + "を展開", dirLabel + "が" + found.toLocaleString() + "件見つかりましたが、上位" + plannedCount + "件はすべて表示済みです。表示件数の設定を増やすと、さらに取得できます。", null, "閉じる");
+    updateOverflow();
     return;
   }
   const warn = capCheck(newOnes.length);
@@ -149,6 +155,32 @@ function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes) {
     setLoading(null);
     Graph.addPapers(newOnes, new Set(favorites.keys()), new Set(pfSelection));
     if (dir === "past") p.loadedPast = true; else p.loadedFuture = true;
+    updateOverflow();
+  });
+}
+
+/* ============ 表示件数の上限で保留された論文の追加表示 ============ */
+function revealOverflow(paperId, dir) {
+  if (busy) return;
+  const p = Graph.papers.get(paperId);
+  if (!p) return;
+  const remaining = (dir === "past" ? p._pastOverflow : p._futureOverflow) || [];
+  if (!remaining.length) return;
+  const dirLabel = (dir === "past") ? "引用文献" : "被引用文献";
+  const warn = capCheck(remaining.length);
+  if (warn === null) return;
+  const msg = "表示件数の上限のため保留されていた" + dirLabel + "、残り" + remaining.length.toLocaleString() + "件をすべて表示します。" + warn;
+  openModal(dirLabel + "を追加表示", msg, async () => {
+    busy = true;
+    setLoading("PubMedから研究種別を取得しています…");
+    try { await enrichStudyTypes(remaining); } catch (e) { /* 分類は補助情報 */ }
+    setLoading("Europe PMCから研究種別を補完しています…");
+    try { await enrichStudyTypesWithEuropePmc(remaining); } catch (e) { /* 分類は補助情報 */ }
+    setLoading(null);
+    Graph.addPapers(remaining, new Set(favorites.keys()), new Set(pfSelection));
+    if (dir === "past") Graph.setOverflow(p.id, [], undefined);
+    else Graph.setOverflow(p.id, undefined, []);
+    busy = false;
   });
 }
 

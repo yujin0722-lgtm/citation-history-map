@@ -15,7 +15,8 @@ Graph.init({
     renderPanel(p);
     openPanel();
   },
-  onBackground: () => { renderEmptyPanel(); }
+  onBackground: () => { renderEmptyPanel(); },
+  onOverflowTap: (paperId, dir) => revealOverflow(paperId, dir)
 });
 
 document.getElementById("btn-create").addEventListener("click", createNetwork);
@@ -267,6 +268,9 @@ async function createNetwork() {
     pfSelection.clear();
     updatePfSendButton();
     Graph.build(root, past.papers, future.papers, new Set(favorites.keys()), new Set(pfSelection));
+    Graph.setOverflow(root.id,
+      past.all.filter(x => !Graph.papers.has(x.id)),
+      future.all.filter(x => !Graph.papers.has(x.id)));
     renderEmptyPanel();
     currentRoot = root;
     const su = shareUrlFor(root);
