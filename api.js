@@ -322,25 +322,56 @@ async function europePmcIdentity(paper) {
   } catch (e) { return null; }
 }
 
+/* 【調査用・一時的】直近のEurope PMC参考文献/被引用文献APIの呼び出し内容を記録する。
+   原因調査のため、確認が済み次第この変数と関連コードは削除する予定 */
+var EUROPEPMC_DEBUG = null;
+
 /* 指定した論文の引用文献(kind="references")または被引用文献(kind="citations")の識別子一覧をEurope PMCから取得する。
    resultType=coreを指定しないとdoi等の識別子フィールドが応答に含まれないため必須。
    各項目はdoi/pmidのどちらか一方、両方、またはどちらも無い場合がある */
 async function fetchEuropePmcLinkedRefs(paper, kind) {
   const identity = await europePmcIdentity(paper);
-  if (!identity) return [];
+  EUROPEPMC_DEBUG = { kind: kind, identity: identity };
+  if (!identity) { EUROPEPMC_DEBUG.error = "識別子(pmid/doi)が解決できませんでした"; return []; }
   const url = new URL(EUROPEPMC_REST_BASE + "/" + identity.source + "/" + identity.id + "/" + kind);
   url.searchParams.set("format", "json");
   url.searchParams.set("resultType", "core");
   url.searchParams.set("pageSize", "1000");
+  EUROPEPMC_DEBUG.url = url.toString();
   try {
     const res = await fetch(url.toString());
-    if (!res.ok) return [];
-    const data = await res.json();
+    EUROPEPMC_DEBUG.status = res.status;
+    if (!res.ok) { EUROPEPMC_DEBUG.error = "HTTPエラー"; return []; }
+    const text = await res.text();
+    EUROPEPMC_DEBUG.bodySnippet = text.slice(0, 600);
+    const data = JSON.parse(text);
     const listKey = kind === "references" ? "referenceList" : "citationList";
     const itemKey = kind === "references" ? "reference" : "citation";
     const items = (data[listKey] && data[listKey][itemKey]) || [];
-    return items.map(it => ({ doi: it.doi || null, pmid: it.pmid || null })).filter(x => x.doi || x.pmid);
-  } catch (e) { return []; }
+    EUROPEPMC_DEBUG.itemCount = items.length;
+    EUROPEPMC_DEBUG.sampleItem = items[0] || null;
+    const out = items.map(it => ({ doi: it.doi || null, pmid: it.pmid || null })).filter(x => x.doi || x.pmid);
+    EUROPEPMC_DEBUG.withIdentifierCount = out.length;
+    return out;
+  } catch (e) { EUROPEPMC_DEBUG.error = String(e); return []; }
+}
+
+/* 【調査用・一時的】EUROPEPMC_DEBUGの内容を、モーダルにそのまま表示できる文字列に整形する */
+function formatEuropePmcDebug() {
+  const d = EUROPEPMC_DEBUG;
+  if (!d) return "(Europe PMCへの問い合わせは行われませんでした)";
+  const lines = [
+    "――― Europe PMC 調査用ログ ―――",
+    "種類: " + d.kind,
+    "識別子: " + JSON.stringify(d.identity),
+  ];
+  if (d.error) lines.push("エラー: " + d.error);
+  if (d.url) lines.push("URL: " + d.url);
+  if (d.status != null) lines.push("HTTPステータス: " + d.status);
+  if (d.itemCount != null) lines.push("応答内の件数: " + d.itemCount + "（うちdoi/pmidあり: " + d.withIdentifierCount + "）");
+  if (d.sampleItem) lines.push("先頭の1件: " + JSON.stringify(d.sampleItem));
+  if (d.bodySnippet) lines.push("応答本文(先頭600字): " + d.bodySnippet);
+  return lines.join("\n");
 }
 
 /* DOIのリストからOpenAlexの書誌情報をまとめて取得する(50件ずつのOR構文、fetchWorksByIdsのDOI版) */
