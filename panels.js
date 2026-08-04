@@ -112,7 +112,7 @@ async function expandNode(p, dir) {
       : await fetchFuturePapersSupplemented(p, displayLimit());
     setLoading(null);
     if (!res.total) {
-      openModal(dirLabel + "を展開", "この論文の" + dirLabel + "は、OpenAlex・Europe PMCのいずれにも登録されていませんでした。出版社が引用データを公開していないことが原因のことが多く、論文の質とは関係しません。\n\n" + formatEuropePmcDebug(), null, "閉じる");
+      openModal(dirLabel + "を展開", "この論文の" + dirLabel + "は、OpenAlex・Europe PMCのいずれにも登録されていませんでした。出版社が引用データを公開していないことが原因のことが多く、論文の質とは関係しません。", null, "閉じる");
       return;
     }
     const rel = (p.id === Graph.rootId) ? dir : "expanded";
@@ -131,10 +131,8 @@ async function expandNode(p, dir) {
 
 function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes) {
   const dirLabel = (dir === "past") ? "引用文献" : "被引用文献";
-  // 【調査用・一時的】Europe PMC補完の原因調査のため、確認用ログをメッセージ末尾に付けている
-  const debugSuffix = "\n\n" + formatEuropePmcDebug();
   if (!newOnes.length) {
-    openModal(dirLabel + "を展開", dirLabel + "が" + found.toLocaleString() + "件見つかりましたが、上位" + plannedCount + "件はすべて表示済みです。表示件数の設定を増やすと、さらに取得できます。" + debugSuffix, null, "閉じる");
+    openModal(dirLabel + "を展開", dirLabel + "が" + found.toLocaleString() + "件見つかりましたが、上位" + plannedCount + "件はすべて表示済みです。表示件数の設定を増やすと、さらに取得できます。", null, "閉じる");
     return;
   }
   const warn = capCheck(newOnes.length);
@@ -142,7 +140,7 @@ function confirmAndAdd(p, dir, found, plannedCount, dup, newOnes) {
   const msg = dirLabel + "が" + found.toLocaleString() + "件見つかりました。\n" +
     "設定に基づき" + plannedCount + "件を追加します。\n" +
     "このうち" + dup + "件は既に表示されています。\n" +
-    "新たに追加される論文は" + newOnes.length + "件です。\n続行しますか？" + warn + debugSuffix;
+    "新たに追加される論文は" + newOnes.length + "件です。\n続行しますか？" + warn;
   openModal(dirLabel + "を展開", msg, async () => {
     setLoading("PubMedから研究種別を取得しています…");
     try { await enrichStudyTypes(newOnes); } catch (e) { /* 分類は補助情報 */ }
