@@ -86,10 +86,22 @@ const Graph = {
         }},
         { selector: "node.dirhidden, node.clustered, node.typehidden", style: { "display": "none" } },
         { selector: "node[?isCluster], node[?isOverflow]", style: {
-          "shape": "round-rectangle", "background-color": "#E8EDF0",
-          "border-style": "dashed", "border-color": "#8A97A0", "border-width": 1.5,
+          "shape": "round-rectangle",
+          "border-width": 1.5,
           "width": 66, "height": 30, "text-valign": "center", "text-margin-y": 0,
           "font-size": "10px", "text-background-opacity": 0, "text-opacity": 1
+        }},
+        /* 年クラスタ（同じ年に論文が多いときに畳んだもの）：グレー・破線 */
+        { selector: "node[?isCluster]", style: {
+          "background-color": "#E8EDF0", "border-style": "dashed", "border-color": "#8A97A0"
+        }},
+        /* 表示件数の上限で保留中の論文：まだ取得していないことを示すため、方向色・点線で区別する */
+        { selector: "node[?isOverflow]", style: { "border-style": "dotted", "border-width": 2 } },
+        { selector: "node[?isOverflow][overflowDir='past']", style: {
+          "background-color": "#DCE8F5", "border-color": COLORS.direction.past
+        }},
+        { selector: "node[?isOverflow][overflowDir='future']", style: {
+          "background-color": "#FBEBD9", "border-color": COLORS.direction.future
         }},
         { selector: "node.nolabel[?isCluster], node.nolabel[?isOverflow]", style: { "text-opacity": 1 } }
       ],
@@ -395,7 +407,7 @@ const Graph = {
         const oid = "ovf_past_" + p.id;
         newNodes.push({ data: {
           id: oid, isOverflow: 1, overflowFor: p.id, overflowDir: "past",
-          label: "ほか" + p._pastOverflow.length + "件", year: p.year, rel: "cluster", cites: 0, title: ""
+          label: "＋" + p._pastOverflow.length + "件", year: p.year, rel: "cluster", cites: 0, title: ""
         }});
         newEdges.push({ data: { id: oid + "_e", source: p.id, target: oid } });
       }
@@ -403,7 +415,7 @@ const Graph = {
         const oid = "ovf_future_" + p.id;
         newNodes.push({ data: {
           id: oid, isOverflow: 1, overflowFor: p.id, overflowDir: "future",
-          label: "ほか" + p._futureOverflow.length + "件", year: p.year, rel: "cluster", cites: 0, title: ""
+          label: "＋" + p._futureOverflow.length + "件", year: p.year, rel: "cluster", cites: 0, title: ""
         }});
         newEdges.push({ data: { id: oid + "_e", source: oid, target: p.id } });
       }
@@ -534,7 +546,11 @@ const Graph = {
   },
   setColorMode(mode) { this.colorMode = mode; this.refreshColors(); },
   refreshColors() {
-    this.cy.nodes().forEach(n => n.style("background-color", this.nodeColor(n.data())));
+    // クラスタ／保留中ノードは専用の配色(スタイルシート側で指定)を使うため対象外にする
+    this.cy.nodes().forEach(n => {
+      if (n.data("isCluster") || n.data("isOverflow")) return;
+      n.style("background-color", this.nodeColor(n.data()));
+    });
     this.renderLegend();
   },
   renderLegend() {
@@ -574,7 +590,7 @@ const Graph = {
     const colorName = { direction: "引用方向", era: "出版年代", importance: "重要度（被引用数）" }[this.colorMode];
     body.innerHTML = "<h3>色：" + colorName + "</h3>" + rows +
       "<h3>形：研究の種類（PubMed分類／なければタイトルから暫定）</h3>" + shapes +
-      '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>点線の枠「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>外周のリング＝エコーロケーションで見つけた「引用の引用」の層<br>線はノードに触れる・選択すると強調表示されます</div>';
+      '<div class="arrow-note">矢印の先が、引用された論文です。<br>ノードの大きさ＝被引用数<br>破線の枠（グレー）「ほか○件」＝畳まれた同年の下位論文（タップで展開）<br>点線の枠（青／オレンジ）「＋○件」＝表示件数の上限で保留中の論文（タップで追加取得なしに表示）<br>外周のリング＝エコーロケーションで見つけた「引用の引用」の層<br>線はノードに触れる・選択すると強調表示されます</div>';
     legend.hidden = !this.legendVisible;
   },
 
