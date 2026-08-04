@@ -149,17 +149,6 @@ async function fetchWorksByIds(ids) {
   return out;
 }
 
-/* 過去文献：referencedWorks のIDリストから取得し、被引用数の多い順に上位limit件 */
-async function fetchPastPapers(referencedIds, limit) {
-  const total = referencedIds.length;
-  if (!total) return { papers: [], total: 0 };
-  const works = await fetchWorksByIds(referencedIds);
-  const papers = works.map(w => toPaper(w, "past"))
-    .sort((a, b) => (b.cites || 0) - (a.cites || 0))
-    .slice(0, limit);
-  return { papers: papers, total: total };
-}
-
 /* 未来文献：この論文を引用している論文を被引用数順に上位limit件 */
 async function fetchFuturePapers(workId, limit) {
   const data = await apiGet("/works", {
@@ -304,6 +293,110 @@ async function enrichStudyTypesWithEuropePmc(papers) {
   const targets = papers.filter(p => p && (p.study === "OTHER" || !p.pmid) && (p.pmid || p.doi));
   if (!targets.length) return;
   try { await fetchEuropePmcTypesBatch(targets); } catch (e) { /* 補助情報なので失敗しても継続 */ }
+}
+
+/* ============ Europe PMCによる引用/被引用ネットワークの補完 ============
+   OpenAlexの引用グラフ(referenced_works / cites:フィルタ)は、出版社が参考文献データを
+   十分に提供していない場合などに欠落することがある。Europe PMCの引用文献/被引用文献APIで
+   見つかった、OpenAlexの結果に含まれていない論文を追加取得し、まとめて返す。
+   失敗しても補助情報として扱い、既存(OpenAlex側)の結果はそのまま活かして処理を続ける。 */
+
+const EUROPEPMC_REST_BASE = "https://www.ebi.ac.uk/europepmc/webservices/rest";
+
+/* 論文のEurope PMC上の識別子(source/id)を特定する。PMIDがあれば直接(MEDLINE=MED)、
+   なければDOI検索で解決する(プレプリント等、Europe PMC独自のsource/idを持つ場合に対応) */
+async function europePmcIdentity(paper) {
+  if (paper.pmid) return { source: "MED", id: paper.pmid };
+  if (!paper.doi) return null;
+  const url = new URL(EUROPEPMC_BASE);
+  url.searchParams.set("query", "DOI:\"" + paper.doi + "\"");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("pageSize", "1");
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) return null;
+    const data = await res.json();
+    const rec = (data.resultList && data.resultList.result && data.resultList.result[0]) || null;
+    if (!rec) return null;
+    return { source: rec.source || "MED", id: rec.pmid || rec.id };
+  } catch (e) { return null; }
+}
+
+/* 指定した論文の引用文献(kind="references")または被引用文献(kind="citations")のDOI一覧をEurope PMCから取得する */
+async function fetchEuropePmcLinkedDois(paper, kind) {
+  const identity = await europePmcIdentity(paper);
+  if (!identity) return [];
+  const url = new URL(EUROPEPMC_REST_BASE + "/" + identity.source + "/" + identity.id + "/" + kind);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("pageSize", "1000");
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) return [];
+    const data = await res.json();
+    const listKey = kind === "references" ? "referenceList" : "citationList";
+    const itemKey = kind === "references" ? "reference" : "citation";
+    const items = (data[listKey] && data[listKey][itemKey]) || [];
+    return items.map(it => it.doi).filter(Boolean);
+  } catch (e) { return []; }
+}
+
+/* DOIのリストからOpenAlexの書誌情報をまとめて取得する(50件ずつのOR構文、fetchWorksByIdsのDOI版) */
+async function fetchWorksByDois(dois) {
+  const out = [];
+  for (let i = 0; i < dois.length; i += 50) {
+    const chunk = dois.slice(i, i + 50);
+    try {
+      const data = await apiGet("/works", {
+        filter: "doi:" + chunk.join("|"),
+        "per-page": String(chunk.length),
+        select: SELECT_FIELDS
+      });
+      out.push(...(data.results || []));
+    } catch (e) { /* 補助情報なので、この分だけ諦めて続行する */ }
+  }
+  return out;
+}
+
+/* 既存の候補一覧(OpenAlex由来、DOIで重複判定)にない、Europe PMCで見つかった論文を追加取得する */
+async function supplementWithEuropePmc(paper, kind, existingPapers, rel) {
+  try {
+    const dois = await fetchEuropePmcLinkedDois(paper, kind);
+    if (!dois.length) return [];
+    const known = new Set(existingPapers.map(p => p.doi && p.doi.toLowerCase()).filter(Boolean));
+    const missing = [...new Set(dois.filter(d => d && !known.has(d.toLowerCase())))];
+    if (!missing.length) return [];
+    const works = await fetchWorksByDois(missing);
+    return works.map(w => { const p = toPaper(w, rel); p.citationSource = "europepmc"; return p; });
+  } catch (e) { return []; }
+}
+
+/* 過去文献(参考文献)：OpenAlexのreferencedWorksに、Europe PMCで見つかった不足分を足して返す。
+   OpenAlexにreferencedWorksが1件もない論文でも、Europe PMC側だけで見つかる場合がある */
+async function fetchPastPapersSupplemented(paper, limit) {
+  const referencedIds = paper.referencedWorks || [];
+  const fromOpenAlex = referencedIds.length
+    ? (await fetchWorksByIds(referencedIds)).map(w => toPaper(w, "past"))
+    : [];
+  const supplement = await supplementWithEuropePmc(paper, "references", fromOpenAlex, "past");
+  const merged = fromOpenAlex.concat(supplement).sort((a, b) => (b.cites || 0) - (a.cites || 0));
+  return { papers: merged.slice(0, limit), total: merged.length };
+}
+
+/* 未来文献(被引用文献)：OpenAlexのcites:フィルタに、Europe PMCで見つかった不足分を足して返す */
+async function fetchFuturePapersSupplemented(paper, limit) {
+  let fromOpenAlex = [];
+  try {
+    const data = await apiGet("/works", {
+      filter: "cites:" + paper.id,
+      sort: "cited_by_count:desc",
+      "per-page": "200",
+      select: SELECT_FIELDS
+    });
+    fromOpenAlex = (data.results || []).map(w => toPaper(w, "future"));
+  } catch (e) { /* OpenAlex側が失敗しても、Europe PMC側だけでの続行を試みる */ }
+  const supplement = await supplementWithEuropePmc(paper, "citations", fromOpenAlex, "future");
+  const merged = fromOpenAlex.concat(supplement).sort((a, b) => (b.cites || 0) - (a.cites || 0));
+  return { papers: merged.slice(0, limit), total: merged.length };
 }
 
 /* ============ エラーメッセージ ============ */
