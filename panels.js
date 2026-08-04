@@ -45,6 +45,7 @@ function renderPanel(p) {
         '<span class="p-tag">' + (REL_LABEL[p.rel] || "") + "</span>" +
         '<span class="p-tag">' + (STUDY_LABEL[p.study] || "") +
           (p.study === "OTHER" ? "" : ({ pubmed: "（PubMed分類）", europepmc: "（Europe PMC分類）" }[p.studySource] || "（暫定判定）")) + "</span>" +
+        (p.citationSource === "europepmc" ? '<span class="p-tag">Europe PMC由来</span>' : "") +
         '<div class="p-title">' + escapeHtml(p.title) + "</div>" +
       "</div>" +
     "</div>" +
@@ -104,36 +105,21 @@ async function expandNode(p, dir) {
   if (busy) return;
   busy = true;
   try {
-    if (dir === "past") {
-      const refs = p.referencedWorks || [];
-      if (!refs.length) {
-        openModal("引用文献を展開", "この論文にはOpenAlexに参考文献が登録されていません。出版社が引用データを公開していないことが原因のことが多く、論文の質とは関係しません。", null, "閉じる");
-        return;
-      }
-      setLoading("引用文献（過去）を取得しています…");
-      const unknownIds = refs.filter(id => !Graph.papers.has(id));
-      const fetched = (await fetchWorksByIds(unknownIds)).map(w => toPaper(w, p.id === Graph.rootId ? "past" : "expanded"));
-      const known = refs.filter(id => Graph.papers.has(id)).map(id => Graph.papers.get(id));
-      const ranked = known.concat(fetched).sort((a, b) => (b.cites || 0) - (a.cites || 0));
-      const planned = ranked.slice(0, displayLimit());
-      const newOnes = planned.filter(x => !Graph.papers.has(x.id));
-      const dup = planned.length - newOnes.length;
-      setLoading(null);
-      confirmAndAdd(p, "past", refs.length, planned.length, dup, newOnes);
-    } else {
-      setLoading("被引用文献（未来）を取得しています…");
-      const res = await fetchFuturePapers(p.id, displayLimit());
-      const rel = (p.id === Graph.rootId) ? "future" : "expanded";
-      const papers = res.papers.map(x => { x.rel = rel; return x; });
-      const newOnes = papers.filter(x => !Graph.papers.has(x.id));
-      const dup = papers.length - newOnes.length;
-      setLoading(null);
-      if (res.total === 0) {
-        openModal("被引用文献を展開", "この論文を引用した論文はまだ登録されていません。", null, "閉じる");
-        return;
-      }
-      confirmAndAdd(p, "future", res.total, papers.length, dup, newOnes);
+    const dirLabel = (dir === "past") ? "引用文献" : "被引用文献";
+    setLoading(dir === "past" ? "引用文献（過去）を取得しています…" : "被引用文献（未来）を取得しています…");
+    const res = (dir === "past")
+      ? await fetchPastPapersSupplemented(p, displayLimit())
+      : await fetchFuturePapersSupplemented(p, displayLimit());
+    setLoading(null);
+    if (!res.total) {
+      openModal(dirLabel + "を展開", "この論文の" + dirLabel + "は、OpenAlex・Europe PMCのいずれにも登録されていませんでした。出版社が引用データを公開していないことが原因のことが多く、論文の質とは関係しません。", null, "閉じる");
+      return;
     }
+    const rel = (p.id === Graph.rootId) ? dir : "expanded";
+    const papers = res.papers.map(x => { x.rel = rel; return x; });
+    const newOnes = papers.filter(x => !Graph.papers.has(x.id));
+    const dup = papers.length - newOnes.length;
+    confirmAndAdd(p, dir, res.total, papers.length, dup, newOnes);
   } catch (e) {
     setLoading(null);
     openModal("エラー", apiErrorMessage(e), null, "閉じる");
@@ -388,15 +374,16 @@ async function runEcholocation(p, dir, typeSet, citesFloor, commonFloor) {
 
     /* ---- 1階層目 ---- */
     setLoading("エコーロケーション：1階層目を取得しています…");
+    // 1階層目(起点論文pに直接つながる層)のみ、Europe PMCによる補完を試みる。2階層目は
+    // 候補数・API呼び出し回数が大きく膨らむため、これまで通りOpenAlexのみで取得する
     let hop1 = [];
     if (firstIsPast) {
-      const refs = p.referencedWorks || [];
-      if (!refs.length) { setLoading(null); busy = false;
-        openModal("エコーロケーション", "この論文には引用文献が登録されていないため、この方向はたどれません。", null, "閉じる"); return; }
-      const works = await echoFetchByIds(refs);
-      hop1 = works.sort((a, b) => (b.cites || 0) - (a.cites || 0)).slice(0, ECHO_HOP1_CAP_REFS);
+      const res = await fetchPastPapersSupplemented(p, ECHO_HOP1_CAP_REFS);
+      if (!res.total) { setLoading(null); busy = false;
+        openModal("エコーロケーション", "この論文の引用文献は、OpenAlex・Europe PMCのいずれにも登録されていないため、この方向はたどれません。", null, "閉じる"); return; }
+      hop1 = res.papers;
     } else {
-      const res = await fetchFuturePapers(p.id, ECHO_HOP1_CAP_CITE);
+      const res = await fetchFuturePapersSupplemented(p, ECHO_HOP1_CAP_CITE);
       if (!res.papers.length) { setLoading(null); busy = false;
         openModal("エコーロケーション", "この論文を引用した論文がまだ登録されていないため、この方向はたどれません。", null, "閉じる"); return; }
       hop1 = res.papers;

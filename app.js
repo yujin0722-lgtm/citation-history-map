@@ -248,10 +248,10 @@ async function createNetwork() {
     const root = await fetchRootWork(norm);
 
     setLoading("引用文献（過去）を取得しています…");
-    const past = await fetchPastPapers(root.referencedWorks, displayLimit());
+    const past = await fetchPastPapersSupplemented(root, displayLimit());
 
     setLoading("被引用文献（未来）を取得しています…");
-    const future = await fetchFuturePapers(root.id, displayLimit());
+    const future = await fetchFuturePapersSupplemented(root, displayLimit());
 
     setLoading("PubMedから研究種別を取得しています…");
     const allPapers = [root, ...past.papers, ...future.papers];

@@ -68,3 +68,34 @@ Yujinさんから、「レビュー論文やガイドラインが誤分類され
 **注意点(Yujinさんへの共有事項)**：開発環境(サンドボックス)からは`www.ebi.ac.uk`への実際のAPI通信がネットワーク制限でブロックされているため、Europe PMCへの実際の通信結果そのものは検証できていない。Playwrightでダミーの応答(実際のEurope PMC APIの応答形式を模したもの)を使い、①PMIDがあるがPubMedで分類できなかった論文がガイドラインとして正しく分類されるか、②DOIのみの論文がレビューとして正しく分類されるか、③既にPubMedで確定した論文はEurope PMCへの無駄な問い合わせをしないか、の3点をテストして確認した。**実際のEurope PMC APIのレスポンス形式(フィールド名など)が想定と違っていないかは、Yujinさんが実際にCitrailを使って動作確認する際に注視してほしい**(公式ドキュメントに基づいて実装したが、実データでの最終確認はできていない)。
 
 既存の回帰テスト(Citrailからパスファインダーへの送信・被引用数の受け渡し・新しいタブでの起動・送り先地図の指定・選択モード)もすべて通過することを確認済み。
+
+## 6. 引用文献ネットワークの取得元をOpenAlexのみからEurope PMCとの併用に拡張（2026-07-27 セッション、実装完了）
+
+Yujinさんから、「OpenAlexのみを使用して引用情報を取得しているが完全ではない。補完する方法を考えたい」との相談があった。
+
+**現状分析**：過去文献(参考文献)は起点論文自身の`referenced_works`から、未来文献(被引用)はOpenAlexの`cites:`フィルタから取得している。どちらもOpenAlexの引用グラフのカバレッジ次第で、出版社が参考文献データを十分に提供していない場合などに漏れが生じる(`referenced_works`が0件の論文も珍しくない)。
+
+**採用した方式**：前回導入したEurope PMCを、研究種別の分類に続いて引用文献ネットワークの補完にも活用した。Europe PMCの`/{source}/{id}/references`・`/{source}/{id}/citations`エンドポイントで見つかった、OpenAlexの結果にない論文(DOIで重複判定)を追加取得し、OpenAlexの結果とマージしてから被引用数順に並べ替える。
+
+実装前にYujinさんに3点を確認し、以下の仕様で合意した：
+- 適用範囲：**既存の3箇所すべて**(初回のネットワーク作成・引用/被引用の追加展開・エコーロケーション)
+- 問い合わせタイミング：**常に問い合わせて統合**(OpenAlexの結果件数によらず毎回Europe PMCにも問い合わせる)
+- 由来の表示：**表示する**(詳細パネルに「Europe PMC由来」のタグを追加)
+
+**実装内容**（`api.js`）：
+- `europePmcIdentity(paper)`：論文のEurope PMC上の識別子(source/id)を特定する。PMIDがあれば直接(`MED`)、なければDOI検索で解決する
+- `fetchEuropePmcLinkedDois(paper, kind)`：`kind`が`"references"`(引用文献)または`"citations"`(被引用文献)のDOI一覧をEurope PMCから取得する
+- `fetchWorksByDois(dois)`：DOIのリストからOpenAlexの書誌情報をまとめて取得する(既存の`fetchWorksByIds()`のDOI版、50件ずつのOR構文)
+- `supplementWithEuropePmc(paper, kind, existingPapers, rel)`：既存の候補一覧(OpenAlex由来)にないDOIをEurope PMCから見つけ、`fetchWorksByDois()`で書誌情報を取得して返す(見つかった論文には`citationSource:"europepmc"`を付与)
+- `fetchPastPapersSupplemented(paper, limit)`／`fetchFuturePapersSupplemented(paper, limit)`：OpenAlex側の取得結果と`supplementWithEuropePmc()`の結果をマージし、被引用数順に並べ替えてから`limit`件に絞って返す。**OpenAlexに参考文献が1件も登録されていない論文でも、Europe PMC側だけで見つかる場合は救済される**(以前は「OpenAlexに参考文献が登録されていません」で即座に終了していた)
+- 旧`fetchPastPapers()`(OpenAlexのみ)は呼び出し元がなくなったため削除。旧`fetchFuturePapers()`(OpenAlexのみ)はエコーロケーションの2階層目で引き続き使用するため残した
+
+**適用箇所**：
+- `app.js`の初回ネットワーク作成：`fetchPastPapersSupplemented`/`fetchFuturePapersSupplemented`を使用
+- `panels.js`の`expandNode()`(引用文献/被引用文献の追加展開)：過去・未来で別々だった処理を統合し、共通のロジックにした
+- `panels.js`の`runEcholocation()`：**起点論文に直接つながる1階層目のみ**Europe PMCの補完を適用し、2階層目(1階層目の各論文からさらに辿る層)は従来通りOpenAlexのみとした。2階層目は候補数・API呼び出し回数がすでに大きく膨らむ設計(1階層目の論文ごとに個別のAPI呼び出しをループする)のため、Europe PMCまで含めるとさらに通信量が増えてしまうことを考慮した判断(Yujinさんへの事前確認はしていない設計判断のため、ここに明記しておく)
+- `panels.js`の詳細パネルに、`citationSource === "europepmc"`の論文には「Europe PMC由来」のタグを追加
+
+**注意点(Yujinさんへの共有事項)**：前回の研究種別分類と同様、開発環境からは実際のEurope PMC APIへの通信を検証できていない。Playwrightで、①OpenAlexの参考文献に無い論文がEurope PMC経由で追加されること、②OpenAlexの被引用に無い論文が同様に追加されること、③OpenAlexに参考文献が1件も無い論文でもEurope PMCだけで救済されること、④パネルに「Europe PMC由来」タグが表示されること、を確認したが、いずれもダミーの応答データによる検証であり、**実際のAPIレスポンス形式との整合性は実際に使ってみての確認をお願いしたい**。
+
+既存の回帰テスト(Citrailからパスファインダーへの送信・被引用数の受け渡し・新しいタブでの起動・送り先地図の指定・選択モード・前回のEurope PMC研究種別分類)もすべて通過することを確認済み。
