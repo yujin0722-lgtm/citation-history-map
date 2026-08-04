@@ -350,7 +350,11 @@ async function fetchEuropePmcLinkedRefs(paper, kind) {
     const items = (data[listKey] && data[listKey][itemKey]) || [];
     EUROPEPMC_DEBUG.itemCount = items.length;
     EUROPEPMC_DEBUG.sampleItem = items[0] || null;
-    const out = items.map(it => ({ doi: it.doi || null, pmid: it.pmid || null })).filter(x => x.doi || x.pmid);
+    // MEDLINE(source==="MED")由来の項目は、専用のpmidフィールドではなく、idフィールドの値自体がPMIDになる
+    const out = items.map(it => ({
+      doi: it.doi || null,
+      pmid: it.pmid || ((it.source === "MED" && it.id) ? it.id : null)
+    })).filter(x => x.doi || x.pmid);
     EUROPEPMC_DEBUG.withIdentifierCount = out.length;
     return out;
   } catch (e) { EUROPEPMC_DEBUG.error = String(e); return []; }
